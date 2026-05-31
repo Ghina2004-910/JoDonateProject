@@ -1,0 +1,167 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isRegistered() {
+      return isSignedIn()
+        && request.auth.token.firebase.sign_in_provider != 'anonymous';
+    }
+
+    function isOwner(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+
+    function userRole() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+    }
+
+    function isAdmin() {
+      return isRegistered() && userRole() == 'admin';
+    }
+
+    function isCommittee() {
+      return isRegistered() && (userRole() == 'committee' || userRole() == 'admin');
+    }
+
+    function itemOwner(itemId) {
+      return get(/databases/$(database)/documents/items/$(itemId)).data.ownerId;
+    }
+
+    function hasRequestAccess(itemId) {
+      return exists(/databases/$(database)/documents/requestAccess/$(itemId + '_' + request.auth.uid));
+    }
+
+    function onlyViewCountChanged() {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(['viewCount']);
+    }
+
+    function marksItemRequested() {
+      return resource.data.status == 'available'
+        && request.resource.data.status == 'requested'
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']);
+    }
+
+    match /users/{userId} {
+      allow read: if isOwner(userId) || isAdmin();
+      allow create: if isOwner(userId);
+      allow update: if isOwner(userId)
+        || (isAdmin() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['role', 'disabled', 'committeeId']));
+      allow delete: if isOwner(userId) || isAdmin();
+    }
+
+    match /committees/{committeeId} {
+      allow read: if isRegistered();
+      allow write: if isAdmin();
+    }
+
+    match /committeeMembers/{memberId} {
+      allow read: if isRegistered()
+        && (resource.data.userId == request.auth.uid || isAdmin() || isCommittee());
+      allow write: if isAdmin();
+    }
+
+    match /eligibilityReviews/{reviewId} {
+      allow read: if isRegistered()
+        && (isCommittee() || isAdmin()
+          || resource.data.requesterId == request.auth.uid
+          || resource.data.itemOwnerId == request.auth.uid);
+      allow create: if isRegistered();
+      allow update: if isCommittee() || isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    match /items/{itemId} {
+      allow read: if true;
+      allow create: if isRegistered()
+        && request.resource.data.ownerId == request.auth.uid;
+      allow update: if isRegistered()
+        && (resource.data.ownerId == request.auth.uid
+          || onlyViewCountChanged()
+          || marksItemRequested()
+          || (isCommittee()
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status'])
+            && resource.data.status == 'requested'
+            && request.resource.data.status == 'available'));
+      allow delete: if isRegistered() && resource.data.ownerId == request.auth.uid;
+    }
+
+    match /itemSecrets/{itemId} {
+      allow read: if isRegistered()
+        && (request.auth.uid == itemOwner(itemId) || hasRequestAccess(itemId));
+      allow create, update: if isRegistered()
+        && request.auth.uid == itemOwner(itemId)
+        && request.resource.data.ownerId == request.auth.uid;
+      allow delete: if isRegistered() && request.auth.uid == itemOwner(itemId);
+    }
+
+    match /requestAccess/{accessId} {
+      allow read: if isRegistered()
+        && (accessId.matches('.*_' + request.auth.uid + '$')
+          || request.auth.uid == resource.data.itemOwnerId);
+      allow create: if isRegistered()
+        && request.auth.uid == request.resource.data.itemOwnerId;
+      allow delete: if isRegistered()
+        && request.auth.uid == resource.data.itemOwnerId;
+      allow update: if false;
+    }
+
+    match /requests/{requestId} {
+      allow read: if isRegistered()
+        && (resource.data.requesterId == request.auth.uid
+          || resource.data.itemOwnerId == request.auth.uid
+          || isCommittee()
+          || isAdmin());
+      allow create: if isRegistered()
+        && request.resource.data.requesterId == request.auth.uid
+        && request.resource.data.status == 'pending';
+      allow update: if isRegistered()
+        && (resource.data.itemOwnerId == request.auth.uid
+          || (isCommittee()
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status'])
+            && request.resource.data.status == 'rejected'
+            && resource.data.status == 'pending'));
+      allow delete: if false;
+    }
+
+    match /notifications/{notifId} {
+      allow read: if isRegistered()
+        && (resource.data.toUserId == request.auth.uid || isAdmin());
+      allow create: if isRegistered();
+      allow update: if isRegistered() && resource.data.toUserId == request.auth.uid;
+      allow delete: if isRegistered()
+        && (resource.data.toUserId == request.auth.uid || isAdmin());
+    }
+
+    match /conversations/{conversationId} {
+      allow read, update: if isRegistered()
+        && request.auth.uid in resource.data.participants;
+      allow create: if isRegistered()
+        && request.auth.uid in request.resource.data.participants;
+    }
+
+    match /conversations/{conversationId}/messages/{messageId} {
+      allow read, write: if isRegistered()
+        && request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participants;
+      allow create: if isRegistered()
+        && request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participants;
+    }
+
+    match /reports/{reportId} {
+      allow read: if isAdmin();
+      allow create: if isRegistered();
+      allow update, delete: if false;
+    }
+
+    match /conversation_reports/{reportId} {
+      allow read: if isAdmin();
+      allow create: if isRegistered()
+        && request.resource.data.reporterId == request.auth.uid;
+      allow update, delete: if false;
+    }
+  }
+}

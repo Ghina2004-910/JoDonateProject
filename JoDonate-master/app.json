@@ -1,0 +1,70 @@
+{
+  "expo": {
+    "name": "JoDonate",
+    "slug": "jodonate",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/images/branding/Logo2.jpg",
+    "scheme": "myexpoapp",
+    "userInterfaceStyle": "automatic",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.anonymous.jodonate"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#4F98DC",
+        "foregroundImage": "./assets/images/branding/Logo2.jpg",
+        "backgroundImage": "./assets/images/branding/Logo2.jpg",
+        "monochromeImage": "./assets/images/branding/Logo2.jpg"
+      },
+      "predictiveBackGestureEnabled": false,
+      "package": "com.anonymous.jodonate"
+    },
+    "web": {
+      "output": "static",
+      "favicon": "./assets/images/branding/Logo2.jpg"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/images/branding/Logo2.jpg",
+          "resizeMode": "cover",
+          "backgroundColor": "#4F98DC",
+          "dark": {
+            "backgroundColor": "#4F98DC"
+          }
+        }
+      ],
+      "expo-secure-store",
+
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "JoDonate uses your location to show donations near you."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "JoDonate needs photo access to upload donation images.",
+          "cameraPermission": "JoDonate needs camera access to take donation photos."
+        }
+      ],
+      "expo-font",
+      "expo-web-browser"
+    ],
+    "experiments": {
+      "typedRoutes": true,
+      "reactCompiler": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "5afad457-d1b7-4632-b501-a7842a3f5d38"
+      }
+    }
+  }
+}
