@@ -90,7 +90,6 @@ export function DemoRoleLogin({ compact }: Props) {
   return (
     <View style={[styles.wrap, compact && styles.wrapCompact]}>
       <Text style={styles.title}>Quick demo login</Text>
-      <Text style={styles.hint}>Password for all: Demo1234!</Text>
       <View style={styles.grid}>
         {DEMO_ACCOUNTS.map((acc) => (
           <Pressable
@@ -104,7 +103,6 @@ export function DemoRoleLogin({ compact }: Props) {
             ) : (
               <>
                 <Text style={[styles.chipLabel, { color: colorFor(acc.key) }]}>{acc.label}</Text>
-                <Text style={styles.chipSub}>{acc.labelAr}</Text>
               </>
             )}
           </Pressable>

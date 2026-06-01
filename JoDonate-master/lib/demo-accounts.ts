@@ -18,7 +18,6 @@ export type DemoAccountKey = "admin" | "committee" | "donor" | "receiver" | "gue
 export type DemoAccount = {
   key: DemoAccountKey;
   label: string;
-  labelAr: string;
   email: string;
   password: string;
   role: UserRole;
@@ -30,7 +29,6 @@ export const DEMO_ACCOUNTS: DemoAccount[] = [
   {
     key: "admin",
     label: "Admin",
-    labelAr: "أدمن",
     email: "admin@jodonate.demo",
     password: DEMO_PASSWORD,
     role: "admin",
@@ -38,7 +36,6 @@ export const DEMO_ACCOUNTS: DemoAccount[] = [
   {
     key: "committee",
     label: "Committee",
-    labelAr: "لجنة",
     email: "committee@jodonate.demo",
     password: DEMO_PASSWORD,
     role: "committee",
@@ -46,7 +43,6 @@ export const DEMO_ACCOUNTS: DemoAccount[] = [
   {
     key: "donor",
     label: "Donor",
-    labelAr: "متبرع",
     email: "donor@jodonate.demo",
     password: DEMO_PASSWORD,
     role: "user",
@@ -54,7 +50,6 @@ export const DEMO_ACCOUNTS: DemoAccount[] = [
   {
     key: "receiver",
     label: "Receiver",
-    labelAr: "متلقي تبرع",
     email: "receiver@jodonate.demo",
     password: DEMO_PASSWORD,
     role: "user",
@@ -62,7 +57,6 @@ export const DEMO_ACCOUNTS: DemoAccount[] = [
   {
     key: "guest",
     label: "Guest",
-    labelAr: "ضيف",
     email: DEMO_GUEST_EMAIL,
     password: DEMO_PASSWORD,
     role: "user",
