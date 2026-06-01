@@ -47,7 +47,7 @@ export default function VerifyEmailScreen() {
     }
   };
 
-  const onSkip = () => router.replace("/(private)");
+  const onSkip = () => router.replace("/(private)" as any);
 
   return (
     <View style={styles.screen}>

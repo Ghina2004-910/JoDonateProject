@@ -609,7 +609,7 @@ const styles = StyleSheet.create({
   card: {
     borderRadius: 18,
     padding: 14,
-    backgroundColor: "rgba(255,255,255,0.16)",
+    backgroundColor: "#FFFFFF",
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.22)",
     flexDirection: "row",
@@ -619,14 +619,14 @@ const styles = StyleSheet.create({
   },
 
   title: {
-    color: "#FFFFFF",
+    color: "#2C2C2A",
     fontWeight: "900",
     fontSize: 13,
     marginBottom: 4,
   },
 
   sub: {
-    color: "rgba(255,255,255,0.82)",
+    color: "#666666",
     fontWeight: "700",
     fontSize: 12,
     lineHeight: 16,
@@ -673,7 +673,7 @@ const styles = StyleSheet.create({
   },
 
   actionText: {
-    color: "#FFFFFF",
+    color: "#2C2C2A",
     fontWeight: "900",
     fontSize: 12,
   },

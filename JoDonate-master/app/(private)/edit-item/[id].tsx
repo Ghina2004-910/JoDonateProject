@@ -21,8 +21,6 @@ import { getAuthUser } from "@/lib/auth-user";
 import { writeItemContactSecrets } from "@/lib/item-secrets";
 import { db } from "@/lib/firebase";
 import { safeGoBack } from "@/lib/navigation";
-// ❌ REMOVED: import { getDownloadURL, ref, uploadBytes, deleteObject } from "firebase/storage";
-// ❌ REMOVED: import { storage } from "@/lib/firebase";  (أو أي مكان ما كانت معرّفة فيه)
 
 type CategoryKey =
   | "Books"
@@ -60,7 +58,6 @@ export default function EditItemScreen() {
   const [imageUrl,       setImageUrl]       = useState<string>("");
   const [showCategoryModal, setShowCategoryModal] = useState(false);
 
-  // ❌ REMOVED: uriToBlob helper — لم تعد مطلوبة مع Cloudinary
 
   // ── Load item ──────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -113,7 +110,7 @@ export default function EditItemScreen() {
     }
 
     const result = await ImagePicker.launchImageLibraryAsync({
-      // ✅ New API — no MediaTypeOptions warning
+     
       mediaTypes: "images" as ImagePicker.MediaType,
       quality: 0.85,
       allowsEditing: true,
@@ -127,7 +124,7 @@ export default function EditItemScreen() {
     try {
       setUploadingImage(true);
 
-      // ✅ Upload directly to Cloudinary — no blob conversion, no Firebase Storage
+      
       const cdnUrl = await uploadToCloudinary(uri);
 
       // Save the CDN URL to Firestore
@@ -161,10 +158,6 @@ export default function EditItemScreen() {
           try {
             setUploadingImage(true);
 
-            // ✅ With Cloudinary there is no client-side file deletion.
-            // We simply clear the imageUrl field in Firestore.
-            // (If you want to physically delete from Cloudinary,
-            //  that should be done server-side via a Cloud Function.)
             await updateDoc(doc(db, "items", id), { imageUrl: "" });
             setImageUrl("");
 
