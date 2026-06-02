@@ -251,9 +251,7 @@ export default function MyItemsScreen() {
           <Ionicons name="chevron-back" size={22} color="#fff" />
         </Pressable>
         <Text style={styles.headerTitle}>{t("myAds")}</Text>
-        <Pressable onPress={messageAdmin} hitSlop={12}>
-          <Ionicons name="mail-outline" size={22} color="#fff" />
-        </Pressable>
+        <View style={{ width: 22 }} />
       </View>
 
       <View style={styles.statsRow}>

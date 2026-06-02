@@ -15,35 +15,6 @@ export function committeeIdFromCity(city?: string): string {
 }
 
 export async function resolveCommitteeIdForItem(itemId: string): Promise<string> {
-  const itemSnap = await getDoc(doc(db, "items", itemId));
-  if (!itemSnap.exists()) return DEFAULT_COMMITTEE_ID;
-
-  const item = itemSnap.data() as {
-    committeeId?: string;
-    city?: string;
-    ownerId?: string;
-  };
-
-  if (item.committeeId?.trim()) return item.committeeId.trim();
-
-  const cityCommitteeId = committeeIdFromCity(item.city);
-  if (cityCommitteeId !== DEFAULT_COMMITTEE_ID) {
-    const committeeSnap = await getDoc(doc(db, "committees", cityCommitteeId));
-    if (committeeSnap.exists() && committeeSnap.data()?.active !== false) {
-      return cityCommitteeId;
-    }
-  }
-
-  if (item.ownerId) {
-    const ownerSnap = await getDoc(doc(db, "users", item.ownerId));
-    if (ownerSnap.exists()) {
-      const ownerCommitteeId = String(
-        (ownerSnap.data() as { committeeId?: string }).committeeId ?? "",
-      ).trim();
-      if (ownerCommitteeId) return ownerCommitteeId;
-    }
-  }
-
   return DEFAULT_COMMITTEE_ID;
 }
 

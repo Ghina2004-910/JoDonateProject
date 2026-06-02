@@ -21,15 +21,20 @@ export function useChatUnreadTotal(): number {
     }
     const q = query(collection(db, "conversations"), where("participants", "array-contains", uid));
     const unsub = onSnapshot(
-      q,
-      (snap) => {
-        let n = 0;
-        snap.forEach((docSnap) => {
-          const u = (docSnap.data() as { unreadBy?: Record<string, number> }).unreadBy?.[uid] ?? 0;
-          n += u;
-        });
-        setTotal(n);
-      },
+  q,
+  (snap) => {
+    let n = 0;
+    snap.forEach((docSnap) => {
+      const data = docSnap.data() as {
+        unreadBy?: Record<string, number>;
+        archivedFor?: string[];
+      };
+      if (data.archivedFor?.includes(uid)) return;
+      const u = Math.max(0, data.unreadBy?.[uid] ?? 0);
+      n += u;
+    });
+    setTotal(n);
+  },
       () => setTotal(0),
     );
     return unsub;

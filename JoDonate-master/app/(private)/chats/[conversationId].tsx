@@ -191,12 +191,16 @@ const ChatBubble = React.memo(
               </Pressable>
             ) : null}
             {item.text ? (
-              mine ? (
-                <Text style={styles.sentTxt}>{item.text}</Text>
-              ) : (
-                <LinkedText text={item.text} baseStyle={styles.recvTxt} linkColor={C.primary} />
-              )
-            ) : null}
+            item.text === "[deleted]" ? (
+              <Text style={[mine ? styles.sentTxt : styles.recvTxt, { fontStyle: "italic", opacity: 0.6 }]}>
+                            This message was deleted
+            </Text>
+            ) : mine ? (
+           <Text style={styles.sentTxt}>{item.text}</Text>
+           ) : (
+         <LinkedText text={item.text} baseStyle={styles.recvTxt} linkColor={C.primary} />
+         )
+         ) : null}
           </View>
           <View style={[styles.metaRow, mine ? styles.metaRight : styles.metaLeft]}>
             <Text style={[styles.metaTime, mine && styles.metaTimeSent]}>
@@ -216,10 +220,11 @@ const ChatBubble = React.memo(
     );
   },
   (prev, next) =>
-    prev.item.id === next.item.id &&
-    prev.item.readBy?.length === next.item.readBy?.length &&
-    prev.item.text === next.item.text &&
-    prev.ascIndex === next.ascIndex,
+  prev.item.id === next.item.id &&
+  prev.item.readBy?.length === next.item.readBy?.length &&
+  prev.item.text === next.item.text &&
+  prev.item.imageUrl === next.item.imageUrl && // ← أضف هاد
+  prev.ascIndex === next.ascIndex,
 );
 // ───────────────────────────────────────────────────────────────────────────
 
@@ -426,29 +431,29 @@ export default function ChatThreadScreen() {
   }, [conversationId]);
 
   const markRead = useCallback(async () => {
-    if (!conversationId || !me || !peerId) return;
-    await updateDoc(doc(db, "conversations", conversationId), {
-      [`unreadBy.${me}`]: 0,
+  if (!conversationId || !me || !peerId) return;
+  
+  const unread = messages.filter(
+    (m) => m.senderId !== me && !(m.readBy ?? []).includes(me)
+  );
+  
+  if (unread.length === 0) return; 
+  
+  const batch = writeBatch(db);
+  unread.forEach((m) => {
+    batch.update(doc(db, "conversations", conversationId, "messages", m.id), {
+      readBy: arrayUnion(me),
     });
-    const q = query(
-      collection(db, "conversations", conversationId, "messages"),
-      orderBy("createdAt", "desc"),
-      limit(40),
-    );
-    const snap = await getDocs(q);
-    const batch = writeBatch(db);
-    snap.forEach((docSnap) => {
-      const data = docSnap.data() as Msg;
-      if (data.senderId !== me && !(data.readBy ?? []).includes(me)) {
-        batch.update(docSnap.ref, { readBy: arrayUnion(me) });
-      }
-    });
-    await batch.commit().catch(() => {});
-  }, [conversationId, me, peerId]);
+  });
+  batch.update(doc(db, "conversations", conversationId), {
+    [`unreadBy.${me}`]: 0,
+  });
+  await batch.commit().catch(() => {});
+}, [conversationId, me, peerId, messages]); 
 
-  useEffect(() => {
-    void markRead();
-  }, [markRead, messages.length]);
+useEffect(() => {
+  void markRead();
+}, [markRead]);
 
   // ─── Fix 1: useRef calls removed from inside function body ─────────────
   const sendTypingPing = () => {
@@ -515,22 +520,29 @@ export default function ChatThreadScreen() {
   };
 
   const pickImage = async () => {
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== "granted") return;
-    const res = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      quality: 0.85,
-    });
-    if (res.canceled || !me) return;
-    try {
-      const uri = res.assets[0]?.uri;
-      if (!uri) return;
-      const url = await uploadToCloudinary(uri);
-      await sendMessage({ imageUrl: url, text: "" });
-    } catch {
-      Alert.alert("Upload failed", "Try again.");
-    }
-  };
+  const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+  if (status !== "granted") {
+    Alert.alert("Permission required", "Please allow photo access.");
+    return;
+  }
+  const res = await ImagePicker.launchImageLibraryAsync({
+    mediaTypes: "images" as ImagePicker.MediaType,
+    quality: 0.85,
+  });
+  if (res.canceled || !me) return;
+  try {
+    const uri = res.assets[0]?.uri;
+    if (!uri) return;
+    setSending(true); 
+    const url = await uploadToCloudinary(uri);
+    await sendMessage({ imageUrl: url, text: "" });
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : "Try again.";
+    Alert.alert("Upload failed", msg); 
+  } finally {
+    setSending(false);
+  }
+};
 
   const attachmentOptions = () => {
     Alert.alert("Attachment", undefined, [
@@ -573,20 +585,33 @@ export default function ChatThreadScreen() {
   // ───────────────────────────────────────────────────────────────────────
 
   const onDeleteChat = () => {
-    Alert.alert("Delete this conversation?", "This cannot be undone.", [
-      { text: "Cancel", style: "cancel" },
-      {
-        text: "Delete",
-        style: "destructive",
-        onPress: async () => {
-          await updateDoc(doc(db, "conversations", conversationId), {
-            archivedFor: arrayUnion(me),
-          });
-          safeGoBack(router, "/chats");
-        },
+  Alert.alert("Delete conversation", "Choose an option:", [
+    { text: "Cancel", style: "cancel" },
+    {
+      text: "Delete for me",
+      onPress: async () => {
+        await updateDoc(doc(db, "conversations", conversationId), {
+          archivedFor: arrayUnion(me),
+        });
+        safeGoBack(router, "/chats");
       },
-    ]);
-  };
+    },
+    {
+      text: "Delete for everyone",
+      style: "destructive",
+      onPress: async () => {
+        const batch = writeBatch(db);
+        const msgsSnap = await getDocs(
+          collection(db, "conversations", conversationId, "messages")
+        );
+        msgsSnap.forEach((d) => batch.delete(d.ref));
+        batch.delete(doc(db, "conversations", conversationId));
+        await batch.commit();
+        safeGoBack(router, "/chats");
+      },
+    },
+  ]);
+};
 
   const submitReport = async () => {
     if (!reportReason) return;

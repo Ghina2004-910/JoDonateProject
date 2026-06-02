@@ -103,7 +103,7 @@ export default function MessagesListScreen() {
     const unsub = onSnapshot(
       q,
       (snap) => {
-        const list: ConvRow[] = [];
+       const list: ConvRow[] = [];
         snap.forEach((docSnap) => {
           const data = docSnap.data() as {
             participants?: string[];

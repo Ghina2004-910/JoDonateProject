@@ -27,7 +27,6 @@ import { useAuth } from "@/lib/auth-context";
 import { crossAlert } from "@/lib/cross-alert";
 import { db } from "@/lib/firebase";
 import { createEligibilityReview } from "@/lib/eligibility-reviews";
-import { safeGoBack } from "@/lib/navigation";
 import { DEFAULT_COMMITTEE_ID } from "@/lib/committees";
 import { type UserRole } from "@/lib/roles";
 import { useUserProfile } from "@/lib/user-profile-context";
@@ -42,7 +41,7 @@ const C = {
   danger: "#E24B4A",
 };
 
-type UserRow = { id: string; name?: string; email?: string; role?: UserRole; createdAt?: any };
+type UserRow = { id: string; name?: string; email?: string; role?: UserRole; createdAt?: any; disabled?: boolean };
 
 type ItemRow = {
   id: string;
@@ -285,6 +284,77 @@ export default function AdminPanelScreen() {
     }
   };
 
+  const deleteItem = async (itemId: string) => {
+  crossAlert("Delete Item", "Are you sure you want to delete this item?", [
+    { text: "Cancel", style: "cancel" },
+    {
+      text: "Delete",
+      style: "destructive",
+      onPress: async () => {
+        try {
+          const { deleteDoc } = await import("firebase/firestore");
+          await deleteDoc(doc(db, "items", itemId));
+          crossAlert("Done", "Item deleted.");
+        } catch (e: unknown) {
+          crossAlert("Error", e instanceof Error ? e.message : "Failed");
+        }
+      },
+    },
+  ]);
+};
+
+const deleteUser = async (uid: string) => {
+  crossAlert("Disable User", "This will mark the user as disabled.", [
+    { text: "Cancel", style: "cancel" },
+    {
+      text: "Disable",
+      style: "destructive",
+      onPress: async () => {
+        try {
+          await updateDoc(doc(db, "users", uid), { disabled: true });
+          crossAlert("Done", "User disabled.");
+        } catch (e: unknown) {
+          crossAlert("Error", e instanceof Error ? e.message : "Failed");
+        }
+      },
+    },
+  ]);
+};
+
+const toggleUserDisabled = async (uid: string, currentlyDisabled: boolean) => {
+  crossAlert(
+    currentlyDisabled ? "Enable User" : "Disable User",
+    currentlyDisabled ? "Re-enable this user?" : "This will block the user.",
+    [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: currentlyDisabled ? "Enable" : "Disable",
+        style: "destructive",
+        onPress: async () => {
+          try {
+            await updateDoc(doc(db, "users", uid), { disabled: !currentlyDisabled });
+            crossAlert("Done", currentlyDisabled ? "User enabled." : "User disabled.");
+          } catch (e: unknown) {
+            crossAlert("Error", e instanceof Error ? e.message : "Failed");
+          }
+        },
+      },
+    ],
+  );
+};
+
+const resolveReport = async (reportId: string, action: "resolved" | "dismissed") => {
+  try {
+    await updateDoc(doc(db, "conversation_reports", reportId), {
+      status: action,
+      resolvedAt: serverTimestamp(),
+    });
+    crossAlert("Done", `Report ${action}.`);
+  } catch (e: unknown) {
+    crossAlert("Error", e instanceof Error ? e.message : "Failed");
+  }
+};
+
   const handleLogout = () => {
     crossAlert("Sign Out", "Are you sure you want to sign out?", [
       { text: "Cancel", style: "cancel" },
@@ -317,9 +387,7 @@ export default function AdminPanelScreen() {
     <View style={styles.screen}>
       {/* Header */}
       <View style={styles.header}>
-        <Pressable onPress={() => safeGoBack(router, "/profile")} hitSlop={12}>
-          <Ionicons name="chevron-back" size={22} color="#fff" />
-        </Pressable>
+        <View style={{ width: 22 }} />
         <Text style={styles.headerTitle}>Admin Dashboard</Text>
         <Pressable onPress={handleLogout} hitSlop={12}>
           <Ionicons name="log-out-outline" size={22} color="#fff" />
@@ -383,13 +451,22 @@ export default function AdminPanelScreen() {
                   {item.description && (
                     <Text style={styles.mutedSmall} numberOfLines={2}>{item.description}</Text>
                   )}
+                  <Pressable
+  style={[styles.assignBtn, { backgroundColor: C.danger }]}
+  onPress={() => void deleteItem(item.id)}
+>
+  <Ionicons name="trash-outline" size={14} color="#fff" />
+  <Text style={styles.assignBtnText}>Delete Item</Text>
+</Pressable>
                 </View>
               ))
             )}
             {filteredItems.length > 50 && (
               <Text style={styles.mutedText}>Showing 50 of {filteredItems.length} items</Text>
             )}
+            
           </View>
+          
         )}
 
         {/* All Requests Section */}
@@ -470,6 +547,15 @@ export default function AdminPanelScreen() {
                       </Text>
                     </Pressable>
                   ))}
+                  <View style={{ flexDirection: "row", gap: 8, marginTop: 8 }}>
+  <Pressable
+    style={[styles.assignBtn, { backgroundColor: user.disabled ? C.green : C.danger }]}
+    onPress={() => void toggleUserDisabled(user.id, !!user.disabled)}
+  >
+    <Ionicons name={user.disabled ? "checkmark-outline" : "ban-outline"} size={14} color="#fff" />
+    <Text style={styles.assignBtnText}>{user.disabled ? "Enable User" : "Disable User"}</Text>
+  </Pressable>
+</View>
                 </View>
               </View>
             ))}
@@ -505,11 +591,29 @@ export default function AdminPanelScreen() {
                     <Text style={styles.reasonText} numberOfLines={3}>{report.reason}</Text>
                   )}
                   <Text style={styles.mutedSmall}>Filed: {formatDate(report.createdAt)}</Text>
+                  <View style={{ flexDirection: "row", gap: 8, marginTop: 8 }}>
+  <Pressable
+    style={[styles.assignBtn, { backgroundColor: C.green }]}
+    onPress={() => void resolveReport(report.id, "resolved")}
+  >
+    <Ionicons name="checkmark-outline" size={14} color="#fff" />
+    <Text style={styles.assignBtnText}>Resolve</Text>
+  </Pressable>
+  <Pressable
+    style={[styles.assignBtn, { backgroundColor: C.muted }]}
+    onPress={() => void resolveReport(report.id, "dismissed")}
+  >
+    <Ionicons name="close-outline" size={14} color="#fff" />
+    <Text style={styles.assignBtnText}>Dismiss</Text>
+  </Pressable>
+</View>
                 </View>
               ))
             )}
           </View>
         )}
+
+        
 
         {/* Logout Button */}
         <Pressable style={styles.logoutBtn} onPress={handleLogout}>

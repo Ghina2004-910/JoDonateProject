@@ -54,15 +54,37 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(!devAuthActive);
 
   useEffect(() => {
-    if (devAuthActive) {
-      setLoading(false);
-      return;
-    }
-    void loadLocale();
-    const unsub = onAuthStateChanged(auth, (u) => {
-      setFirebaseUser(u);
-      setLoading(false);
-    });
+  if (devAuthActive) {
+    setLoading(false);
+    return;
+  }
+  void loadLocale();
+
+  let disabledSignOut = false;
+    
+    const unsub = onAuthStateChanged(auth, async (u) => {
+  if (disabledSignOut) return;
+  if (u) {
+    const { getDoc, doc } = await import("firebase/firestore");
+    const { db } = await import("@/lib/firebase");
+    const snap = await getDoc(doc(db, "users", u.uid));
+    if (snap.exists() && snap.data()?.disabled === true) {
+  disabledSignOut = true;
+  setFirebaseUser(null);
+  setLoading(false);
+  await signOut(auth);
+  disabledSignOut = false; 
+  const { crossAlert } = await import("@/lib/cross-alert");
+  const { router } = await import("expo-router");
+  crossAlert("Account Disabled", "Your account has been disabled. Please contact support.", [
+    { text: "OK", onPress: () => router.replace("/(onboarding)") }
+  ]);
+  return;
+}
+  }
+  setFirebaseUser(u);
+  setLoading(false);
+});
     return unsub;
   }, []);
 

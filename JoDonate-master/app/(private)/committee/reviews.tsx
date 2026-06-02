@@ -27,7 +27,6 @@ import { crossAlert } from "@/lib/cross-alert";
 import { DEFAULT_COMMITTEE_ID } from "@/lib/committees";
 import { reviewEligibility, type EligibilityStatus } from "@/lib/eligibility-reviews";
 import { db } from "@/lib/firebase";
-import { safeGoBack } from "@/lib/navigation";
 import { useUserProfile } from "@/lib/user-profile-context";
 
 const C = {
@@ -404,9 +403,7 @@ export default function CommitteeReviewsScreen() {
     <View style={styles.screen}>
       {/* Header */}
       <View style={styles.header}>
-        <Pressable onPress={() => safeGoBack(router, "/profile")} hitSlop={12}>
-          <Ionicons name="chevron-back" size={24} color="#fff" />
-        </Pressable>
+        <View style={{ width: 24 }} />
         <View style={styles.headerCenter}>
           <Text style={styles.headerTitle}>Committee Reviews</Text>
           <Text style={styles.headerSub}>
