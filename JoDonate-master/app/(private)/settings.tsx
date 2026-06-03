@@ -179,16 +179,16 @@ export default function SettingsScreen() {
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
         <View style={styles.inner}>
-          <SectionTitle title="Account" />
-          <Card>
+        <SectionTitle title={t("account")} />        
+        <Card>
             <LinkRow
               icon="mail-outline"
-              label="Change email"
+              label={t("changeEmail")}
               onPress={onChangeEmail}
             />
-            <LinkRow icon="key-outline" label="Change password" last onPress={onChangePasswordNav} />
+            <LinkRow icon="key-outline" label={t("changePassword")} last onPress={onChangePasswordNav} />
           </Card>
-          <SectionTitle title="Preferences" />
+          <SectionTitle title={t("preferences")} />
           <Card>
             <Pressable
               style={[styles.row, styles.rowBorder, { borderBottomWidth: 0 }]}
@@ -225,7 +225,7 @@ export default function SettingsScreen() {
             </Pressable>
           </Card>
 
-          <SectionTitle title="Privacy" />
+          <SectionTitle title={t("privacy")} />
           <Card>
             <Pressable
               style={[styles.row, styles.rowBorder]}
@@ -239,15 +239,15 @@ export default function SettingsScreen() {
                 <Ionicons name="eye-outline" size={20} color={C.primary} />
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={styles.rowTitle}>Profile visibility</Text>
+                <Text style={styles.rowTitle}>{t("profileVisibility")}</Text>
                 <Text style={styles.rowSub}>
-                  {profileVisibility === "public" ? "Public" : "Private"}
+                  {profileVisibility === "public" ? t("public") : t("private")}
                 </Text>
               </View>
               <Ionicons name="chevron-forward" size={20} color={C.muted} />
             </Pressable>
             <RowToggle
-              label="Show phone"
+              label={t("showPhone")}
               sub="On your public profile"
               value={showPhone}
               onValueChange={(v) => {
@@ -256,8 +256,8 @@ export default function SettingsScreen() {
               }}
             />
             <RowToggle
-              label="Show email"
-              sub="On your public profile"
+              label={t("showEmail")}
+              sub={t("onPublicProfile")}
               value={showEmail}
               onValueChange={(v) => {
                 setShowEmail(v);
@@ -265,19 +265,19 @@ export default function SettingsScreen() {
               }}
             />
             <RowToggle
-              label="Allow messages"
-              sub="Other users can chat with you"
+              label={t("allowMessages")}
+              sub={t("otherUsersCanChat")}
               value={allowMessages}
               onValueChange={setAllowMessages}
               last
             />
           </Card>
 
-          <SectionTitle title="Security shortcuts" />
+          <SectionTitle title={t("securityShortcuts")} />
           <Card>
             <LinkRow
               icon="lock-closed-outline"
-              label={resetLoading ? "Sending reset email…" : "Email me a reset link"}
+              label={resetLoading ? "Sending reset email..." : t("emailResetLink")}
               onPress={() => {
                 if (!resetLoading) void onResetPassword();
               }}
@@ -285,14 +285,14 @@ export default function SettingsScreen() {
             />
           </Card>
 
-          <SectionTitle title="Data" />
+          <SectionTitle title={t("data")} />
           <Card>
-            <LinkRow icon="download-outline" label="Download my data" onPress={onDownloadData} />
+            <LinkRow icon="download-outline" label={t("downloadMyData")} onPress={onDownloadData} />
             <Pressable style={[styles.row]} onPress={onDeleteAccount}>
               <View style={styles.iconCircle}>
                 <Ionicons name="trash-outline" size={20} color={C.danger} />
               </View>
-              <Text style={[styles.rowTitle, { color: C.danger, flex: 1 }]}>Delete account</Text>
+              <Text style={[styles.rowTitle, { color: C.danger, flex: 1 }]}>{t("deleteAccount")}</Text>
               <Ionicons name="chevron-forward" size={20} color={C.muted} />
             </Pressable>
           </Card>

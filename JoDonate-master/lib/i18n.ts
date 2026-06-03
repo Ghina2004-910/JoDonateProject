@@ -19,7 +19,28 @@ const en = {
   notifications: "Notifications",
   nearMe: "Near me",
   useGps: "Use my location",
+
+  viewAllCategories: "View all categories",
+  browseCategories: "Browse Categories",
+  hotDonations: "Hot Donations",
+  activeListings: "Active listings",
+  categories: "Categories",
+  inFeedNow: "In feed now",
+  searchPlaceholder: "Search donations or requests",
+
+  foodGrocery: "Food & Grocery",
+  clothesFashion: "Clothes & Fashion",
+  services: "Services",
+  companyEquipment: "Company Equipment",
+games: "Games",
+electronics: "Electronics",
+sportsFitness: "Sports & Fitness",
+educationTraining: "Education & Training",
+petsAccessories: "Pets & Accessories",
+beautyHealth: "Beauty & Health",
+books: "Books",
 } as const;
+
 
 const ar: Record<keyof typeof en, string> = {
   settings: "الإعدادات",
@@ -29,12 +50,32 @@ const ar: Record<keyof typeof en, string> = {
   requestDonation: "طلب تبرع",
   adminPanel: "لوحة الإدارة",
   committeeReviews: "مراجعات اللجنة",
-  verifyEmail: "تحقق من بريدك",
+  verifyEmail: "تحقق من بريدك الإلكتروني",
   home: "الرئيسية",
   donations: "التبرعات",
   notifications: "الإشعارات",
   nearMe: "بالقرب مني",
   useGps: "استخدم موقعي",
+
+  viewAllCategories: "عرض جميع الفئات",
+  browseCategories: "تصفح الفئات",
+  hotDonations: "أحدث التبرعات",
+  activeListings: "الإعلانات النشطة",
+  categories: "الفئات",
+  inFeedNow: "المعروض حالياً",
+  searchPlaceholder: "ابحث عن تبرعات أو طلبات",
+
+  foodGrocery: "الأغذية والبقالة",
+  clothesFashion: "الملابس والأزياء",
+  services: "الخدمات",
+  companyEquipment: "معدات الشركات",
+games: "الألعاب",
+electronics: "الإلكترونيات",
+sportsFitness: "الرياضة واللياقة",
+educationTraining: "التعليم والتدريب",
+petsAccessories: "الحيوانات الأليفة وملحقاتها",
+beautyHealth: "الجمال والصحة",
+books: "الكتب",
 };
 
 const dict: Record<Locale, Record<keyof typeof en, string>> = { en, ar };
