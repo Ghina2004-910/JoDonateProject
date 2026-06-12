@@ -146,7 +146,18 @@ export default function MyItemsScreen() {
       return;
     }
     try {
-      await updateDoc(doc(db, "items", itemId), { status: "donated" });
+      const reqQ = query(
+  collection(db, "requests"),
+  where("itemId", "==", itemId),
+  where("status", "==", "approved")
+);
+const reqSnap = await getDocs(reqQ);
+const recipientId = reqSnap.empty ? null : reqSnap.docs[0].data().requesterId ?? null;
+
+await updateDoc(doc(db, "items", itemId), {
+  status: "donated",
+  ...(recipientId ? { recipientId } : {}),
+});
       await notifyDonationCompleted({
         itemId,
         ownerId: user.uid,
