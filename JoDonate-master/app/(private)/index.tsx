@@ -250,9 +250,7 @@ export default function HomeScreen() {
                         <Ionicons name="image-outline" size={36} color={C.textSecondary} />
                       </View>
                     )}
-                    <Pressable style={styles.cardHeart} onPress={() => onFavoriteItem(item.id)}>
-                      <Ionicons name="heart-outline" size={20} color={C.primary} />
-                    </Pressable>
+                    
                     <View style={styles.catBadge}>
                       <Text style={styles.catBadgeText} numberOfLines={1}>
                         {item.category}
@@ -298,9 +296,7 @@ export default function HomeScreen() {
                     <Text style={styles.locText}>{item.city ?? "Jordan"}</Text>
                   </View>
                 </View>
-                <Pressable style={styles.recentHeart} onPress={() => onFavoriteItem(item.id)}>
-                  <Ionicons name="heart-outline" size={22} color={C.primary} />
-                </Pressable>
+              
               </View>
               <Text style={styles.postedTime}>{formatPostedTime(item.createdAt)}</Text>
             </Pressable>

@@ -561,22 +561,6 @@ export default function ProfileScreen() {
             </View>
           </View>
 
-          {/* ── Rating ── */}
-          <Text style={styles.sectionTitle}>Rating</Text>
-          <Pressable style={[styles.ratingCard, cardShadowSoft()]} onPress={() => setModalReviews(true)}>
-            <View style={styles.starRow}>
-              {stars.map((on, i) => (
-                <Ionicons key={i} name={on ? "star" : "star-outline"} size={22} color={on ? C.star : C.muted} />
-              ))}
-            </View>
-            <Text style={styles.ratingNum}>
-              {(ratingAvg ?? 0).toFixed(1)} / 5.0 ({ratingCount} reviews)
-            </Text>
-            <Text style={styles.ratingTap}>
-              {ratingCount > 0 ? "Tap to view reviews" : "Tap for sample reviews — yours will appear here"}
-            </Text>
-          </Pressable>
-
           {/* ── My Donations ── */}
           <View style={styles.sectionRow}>
             <Text style={styles.sectionTitle}>My Donations</Text>

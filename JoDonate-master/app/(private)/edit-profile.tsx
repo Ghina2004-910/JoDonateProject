@@ -282,12 +282,6 @@ export default function EditProfileScreen() {
                 onValueChange={setProfilePublic}
               />
               <ToggleRow
-                label="Show email"
-                sub="Display email on your public profile"
-                value={showEmail}
-                onValueChange={setShowEmail}
-              />
-              <ToggleRow
                 label="Show phone"
                 sub="Display phone on your public profile"
                 value={showPhone}

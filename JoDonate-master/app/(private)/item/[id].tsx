@@ -598,7 +598,17 @@ export default function ItemDetailsScreen() {
           </View>
 
           <View style={styles.userCard}>
-            <View style={styles.userTop}>
+            <Pressable
+              style={styles.userTop}
+              onPress={() => {
+                if (item?.ownerId) {
+                  router.push({
+                    pathname: "/(private)/user/[uid]" as any,
+                    params: { uid: item.ownerId },
+                  });
+                }
+              }}
+            >
               {owner?.avatarUrl ? (
                 <Image source={{ uri: owner.avatarUrl }} style={styles.avatar} />
               ) : (
@@ -622,7 +632,7 @@ export default function ItemDetailsScreen() {
                   <Text style={styles.userMeta}>{item.city ?? "Jordan"}</Text>
                 </View>
               </View>
-            </View>
+            </Pressable>
             {!isOwner ? (
               <Pressable style={styles.contactOutline} onPress={openContactOrLogin}>
                 <Text style={styles.contactOutlineTxt}>
