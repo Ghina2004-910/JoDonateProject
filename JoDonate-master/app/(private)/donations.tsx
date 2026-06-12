@@ -1,6 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { collection, onSnapshot, orderBy, query, limit } from "firebase/firestore";
+import { toggleFavoriteId, getFavoriteIds } from "@/lib/favorites-storage";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
@@ -52,7 +53,7 @@ type ItemDoc = {
   longitude?: number;
 };
 
-const SORT_LABELS = ["Newest", "Most Relevant", "Popular", "Most Views"] as const;
+const SORT_LABELS = ["Newest", "Oldest"] as const;
 type SortKey = (typeof SORT_LABELS)[number];
 
 const ALL_CATEGORY_LABELS = [
@@ -76,6 +77,11 @@ export default function DonationsScreen() {
   const { t } = useLocale();
 
   const [rawItems, setRawItems] = useState<ItemDoc[]>([]);
+  const [favIds, setFavIds] = useState<Set<string>>(new Set());
+
+useEffect(() => {
+  getFavoriteIds().then((ids) => setFavIds(new Set(ids)));
+}, []);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [search, setSearch] = useState(params.q ?? "");
@@ -161,10 +167,8 @@ export default function DonationsScreen() {
       rows = rows.filter((it) => itemTime(it) >= cut);
     }
 
-    if (sort === "Newest") rows.sort((a, b) => itemTime(b) - itemTime(a));
-    else if (sort === "Popular" || sort === "Most Views")
-      rows.sort((a, b) => b.title.length - a.title.length);
-    else rows.sort((a, b) => itemTime(b) - itemTime(a));
+   if (sort === "Oldest") rows.sort((a, b) => itemTime(a) - itemTime(b));
+else rows.sort((a, b) => itemTime(b) - itemTime(a)); // Newest default
 
     return rows;
   }, [rawItems, search, selectedCats, condition, sort, datePosted, locationQuery, nearMe, userCoords]);
@@ -204,31 +208,32 @@ export default function DonationsScreen() {
   };
 
   const clearFilters = () => {
-    setSelectedCats(new Set());
-    setCondition(null);
-    setDatePosted("any");
-    setLocationQuery("");
-    setNearMe(false);
-    setUserCoords(null);
-    setChipActive("all");
-    setFilterOpen(false);
-  };
+  setSelectedCats(new Set());
+  setCondition(null);
+  setDatePosted("any");
+  setLocationQuery("");
+  setNearMe(false);
+  setUserCoords(null);
+  setChipActive("all");
+};
 
-  const onHeart = () => {
-    if (limitedGuest) {
-      Alert.alert(
-        "Please Login",
-        "Sign in to save favorites.",
-        [
-          { text: "Cancel", style: "cancel" },
-          { text: "Login", onPress: () => router.push("/login") },
-          { text: "Sign Up", onPress: () => router.push("/sign-up") },
-        ],
-      );
-      return;
-    }
-    Alert.alert("Favorites", "Coming soon.");
-  };
+  const onHeart = async (itemId: string) => {
+  if (limitedGuest) {
+    Alert.alert(
+      "Please Login",
+      "Sign in to save favorites.",
+      [
+        { text: "Cancel", style: "cancel" },
+        { text: "Login", onPress: () => router.push("/login") },
+        { text: "Sign Up", onPress: () => router.push("/sign-up") },
+      ],
+    );
+    return;
+  }
+  await toggleFavoriteId(itemId);
+  const ids = await getFavoriteIds();
+  setFavIds(new Set(ids));
+};
 
   const openItem = (id: string) =>
     router.push({ pathname: "/item/[id]", params: { id } });
@@ -266,9 +271,13 @@ export default function DonationsScreen() {
             <Ionicons name="image-outline" size={32} color={C.textSecondary} />
           </View>
         )}
-        <Pressable style={styles.heartAbs} onPress={onHeart}>
-          <Ionicons name="heart-outline" size={20} color={C.primary} />
-        </Pressable>
+        <Pressable style={styles.heartAbs} onPress={() => onHeart(item.id)}>
+  <Ionicons
+    name={favIds.has(item.id) ? "heart" : "heart-outline"}
+    size={20}
+    color={favIds.has(item.id) ? "#E24B4A" : C.primary}
+  />
+</Pressable>
         <View style={styles.badgeAbs}>
           <Text style={styles.badgeTxt} numberOfLines={1}>
             {item.category}
@@ -314,8 +323,12 @@ export default function DonationsScreen() {
           ) : null}
           <Text style={styles.dateSmall}>{formatPostedTime(item.createdAt)}</Text>
         </View>
-        <Pressable onPress={onHeart} style={{ padding: 4 }}>
-          <Ionicons name="heart-outline" size={22} color={C.primary} />
+        <Pressable onPress={() => onHeart(item.id)} style={{ padding: 4 }}>
+          <Ionicons
+  name={favIds.has(item.id) ? "heart" : "heart-outline"}
+  size={20}
+  color={favIds.has(item.id) ? "#E24B4A" : C.primary}
+/>
         </Pressable>
       </View>
     </Pressable>
@@ -388,16 +401,24 @@ export default function DonationsScreen() {
             </Text>
           </Pressable>
           <Pressable
-            style={[styles.chip, chipActive === "condition" && styles.chipOn]}
-            onPress={() => {
-              setChipActive("condition");
-              setFilterOpen(true);
-            }}
-          >
-            <Text style={[styles.chipTxt, chipActive === "condition" && styles.chipTxtOn]}>
-              Condition
-            </Text>
-          </Pressable>
+  style={[styles.chip, selectedCats.size > 0 && styles.chipOn]}
+  onPress={() => setFilterOpen(true)}
+>
+  <Text style={[styles.chipTxt, selectedCats.size > 0 && styles.chipTxtOn]}>
+    {selectedCats.size > 0 ? `Category (${selectedCats.size})` : "Category"}
+  </Text>
+</Pressable>
+<Pressable
+  style={[styles.chip, chipActive === "condition" && styles.chipOn]}
+  onPress={() => {
+    setChipActive("condition");
+    setFilterOpen(true);
+  }}
+>
+  <Text style={[styles.chipTxt, chipActive === "condition" && styles.chipTxtOn]}>
+    Condition
+  </Text>
+</Pressable>
         </ScrollView>
       </View>
 
@@ -450,94 +471,114 @@ export default function DonationsScreen() {
         />
       )}
 
-      <Modal visible={filterOpen} animationType="slide" transparent>
-        <View style={styles.modalBackdrop}>
-          <View style={styles.modalCard}>
-            <View style={styles.modalHead}>
-              <Text style={styles.modalTitle}>Filters</Text>
-              <Pressable onPress={() => setFilterOpen(false)}>
-                <Ionicons name="close" size={26} color={C.text} />
-              </Pressable>
-            </View>
-            <Text style={styles.modalSection}>Category</Text>
-            <ScrollView style={{ maxHeight: 200 }}>
-              {ALL_CATEGORY_LABELS.map((cat) => (
-                <Pressable
-                  key={cat}
-                  style={styles.checkRow}
-                  onPress={() => toggleCatFilter(cat)}
-                >
-                  <Ionicons
-                    name={selectedCats.has(cat) ? "checkbox" : "square-outline"}
-                    size={22}
-                    color={selectedCats.has(cat) ? C.primary : C.textSecondary}
-                  />
-                  <Text style={styles.checkLabel}>{cat}</Text>
-                </Pressable>
-              ))}
-            </ScrollView>
-            <Text style={styles.modalSection}>Location</Text>
-            <Pressable style={styles.checkRow} onPress={() => void toggleNearMe()}>
-              <Ionicons
-                name={nearMe ? "checkbox" : "square-outline"}
-                size={22}
-                color={nearMe ? C.primary : C.textSecondary}
-              />
-              <Text style={styles.checkLabel}>{t("nearMe")} (40 km)</Text>
-            </Pressable>
-            <TextInput
-              style={styles.locInput}
-              placeholder="City or region (e.g. Amman)"
-              placeholderTextColor={C.textSecondary}
-              value={locationQuery}
-              onChangeText={setLocationQuery}
+  <Modal visible={filterOpen} animationType="slide" transparent>
+  <View style={styles.modalBackdrop}>
+    <View style={styles.modalCard}>
+
+      {/* Header ثابت */}
+      <View style={styles.modalHead}>
+        <Text style={styles.modalTitle}>Filters</Text>
+        <Pressable onPress={() => setFilterOpen(false)}>
+          <Ionicons name="close" size={26} color={C.text} />
+        </Pressable>
+      </View>
+
+      {/* المحتوى كله scrollable */}
+      <ScrollView showsVerticalScrollIndicator={false}>
+
+        <Text style={styles.modalSection}>Category</Text>
+        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 10 }}>
+  {ALL_CATEGORY_LABELS.map((cat) => (
+    <Pressable
+      key={cat}
+      style={[
+        styles.catFilterChip,
+        selectedCats.has(cat) && styles.catFilterChipOn,
+      ]}
+      onPress={() => toggleCatFilter(cat)}
+    >
+      <Text
+        style={[
+          styles.catFilterChipTxt,
+          selectedCats.has(cat) && styles.catFilterChipTxtOn,
+        ]}
+      >
+        {cat}
+      </Text>
+    </Pressable>
+  ))}
+</View>
+
+        <Text style={styles.modalSection}>Location</Text>
+        <TextInput
+          style={styles.locInput}
+          placeholder="City or region (e.g. Amman)"
+          placeholderTextColor={C.textSecondary}
+          value={locationQuery}
+          onChangeText={setLocationQuery}
+        />
+
+        <Text style={styles.modalSection}>Date posted</Text>
+        {(
+          [
+            ["any", "Anytime"],
+            ["24h", "Last 24h"],
+            ["week", "Last week"],
+            ["month", "Last month"],
+          ] as const
+        ).map(([key, label]) => (
+          <Pressable
+            key={key}
+            style={styles.radioRow}
+            onPress={() => setDatePosted(key)}
+          >
+            <Ionicons
+              name={datePosted === key ? "radio-button-on" : "radio-button-off"}
+              size={20}
+              color={datePosted === key ? C.primary : C.textSecondary}
             />
-            <Text style={styles.modalSection}>Date posted</Text>
-            {(
-              [
-                ["any", "Anytime"],
-                ["24h", "Last 24h"],
-                ["week", "Last week"],
-                ["month", "Last month"],
-              ] as const
-            ).map(([key, label]) => (
-              <Pressable
-                key={key}
-                style={styles.radioRow}
-                onPress={() => setDatePosted(key)}
-              >
-                <Ionicons
-                  name={datePosted === key ? "radio-button-on" : "radio-button-off"}
-                  size={20}
-                  color={datePosted === key ? C.primary : C.textSecondary}
-                />
-                <Text style={styles.checkLabel}>{label}</Text>
-              </Pressable>
-            ))}
-            <Text style={styles.modalSection}>Condition</Text>
-            {CONDITIONS.filter((c) => c !== "Any").map((c) => (
-              <Pressable
-                key={c}
-                style={styles.radioRow}
-                onPress={() => setCondition(condition === c ? null : c)}
-              >
-                <Ionicons
-                  name={condition === c ? "radio-button-on" : "radio-button-off"}
-                  size={20}
-                  color={condition === c ? C.primary : C.textSecondary}
-                />
-                <Text style={styles.checkLabel}>{c}</Text>
-              </Pressable>
-            ))}
-            <Pressable style={styles.applyBtn} onPress={applyFilters}>
-              <Text style={styles.applyBtnTxt}>Apply filters</Text>
-            </Pressable>
-            <Pressable onPress={clearFilters}>
-              <Text style={styles.clearTxt}>Clear filters</Text>
-            </Pressable>
-          </View>
-        </View>
-      </Modal>
+            <Text style={styles.checkLabel}>{label}</Text>
+          </Pressable>
+        ))}
+
+        <Text style={styles.modalSection}>Condition</Text>
+        {CONDITIONS.filter((c) => c !== "Any").map((c) => (
+          <Pressable
+            key={c}
+            style={styles.radioRow}
+            onPress={() => setCondition(condition === c ? null : c)}
+          >
+            <Ionicons
+              name={condition === c ? "radio-button-on" : "radio-button-off"}
+              size={20}
+              color={condition === c ? C.primary : C.textSecondary}
+            />
+            <Text style={styles.checkLabel}>{c}</Text>
+          </Pressable>
+        ))}
+
+        <View style={{ height: 16 }} />
+      </ScrollView>
+
+      {/* down*/}
+      <View style={{ flexDirection: "row", gap: 10, marginTop: 12 }}>
+        <Pressable
+          style={[styles.applyBtn, { flex: 1, backgroundColor: "#eee" }]}
+          onPress={clearFilters}
+        >
+          <Text style={[styles.applyBtnTxt, { color: "#555" }]}>Clear</Text>
+        </Pressable>
+        <Pressable
+          style={[styles.applyBtn, { flex: 2 }]}
+          onPress={applyFilters}
+        >
+          <Text style={styles.applyBtnTxt}>Apply</Text>
+        </Pressable>
+      </View>
+
+    </View>
+  </View>
+</Modal>
 
       <PrivateBottomNav active="donations" />
     </View>
@@ -887,4 +928,25 @@ const styles = StyleSheet.create({
     color: C.textSecondary,
     fontWeight: "600",
   },
+  catFilterChip: {
+  width: "47%",
+  paddingVertical: 10,
+  paddingHorizontal: 12,
+  borderRadius: 10,
+  backgroundColor: C.inputBg,
+  borderWidth: 1,
+  borderColor: C.border,
+},
+catFilterChipOn: {
+  backgroundColor: C.primary,
+  borderColor: C.primary,
+},
+catFilterChipTxt: {
+  fontSize: 13,
+  fontWeight: "600",
+  color: C.text,
+},
+catFilterChipTxtOn: {
+  color: "#FFFFFF",
+},
 });

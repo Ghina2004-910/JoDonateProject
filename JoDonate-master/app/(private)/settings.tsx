@@ -50,7 +50,6 @@ export default function SettingsScreen() {
   const user = getAuthUser();
 
   const [lang, setLang] = useState<Locale>(locale);
-  const [profileVisibility, setProfileVisibility] = useState<"public" | "private">("public");
   const [showPhone, setShowPhone] = useState(true);
   const [showEmail, setShowEmail] = useState(false);
   const [allowMessages, setAllowMessages] = useState(true);
@@ -65,7 +64,6 @@ export default function SettingsScreen() {
     getDoc(ref).then((snap) => {
       if (!snap.exists()) return;
       const d = snap.data() as Record<string, unknown>;
-      setProfileVisibility(d.profilePublic === false ? "private" : "public");
       setShowEmail(d.showEmail === true);
       setShowPhone(d.showPhone !== false);
     });
@@ -227,25 +225,6 @@ export default function SettingsScreen() {
 
           <SectionTitle title={t("privacy")} />
           <Card>
-            <Pressable
-              style={[styles.row, styles.rowBorder]}
-              onPress={() => {
-                const next = profileVisibility === "public" ? "private" : "public";
-                setProfileVisibility(next);
-                persistPrivacy({ profilePublic: next === "public" });
-              }}
-            >
-              <View style={styles.iconCircle}>
-                <Ionicons name="eye-outline" size={20} color={C.primary} />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.rowTitle}>{t("profileVisibility")}</Text>
-                <Text style={styles.rowSub}>
-                  {profileVisibility === "public" ? t("public") : t("private")}
-                </Text>
-              </View>
-              <Ionicons name="chevron-forward" size={20} color={C.muted} />
-            </Pressable>
             <RowToggle
               label={t("showPhone")}
               sub="On your public profile"
@@ -269,18 +248,6 @@ export default function SettingsScreen() {
               sub={t("otherUsersCanChat")}
               value={allowMessages}
               onValueChange={setAllowMessages}
-              last
-            />
-          </Card>
-
-          <SectionTitle title={t("securityShortcuts")} />
-          <Card>
-            <LinkRow
-              icon="lock-closed-outline"
-              label={resetLoading ? "Sending reset email..." : t("emailResetLink")}
-              onPress={() => {
-                if (!resetLoading) void onResetPassword();
-              }}
               last
             />
           </Card>

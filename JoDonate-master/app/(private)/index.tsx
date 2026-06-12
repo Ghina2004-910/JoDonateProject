@@ -107,7 +107,6 @@ export default function HomeScreen() {
     setTimeout(() => setRefreshing(false), 600);
   }, []);
 
-  const hotItems = useMemo(() => items.slice(0, 10), [items]);
   const recentItems = useMemo(() => items.slice(0, 12), [items]);
   const categoryCoverage = useMemo(
     () => new Set(items.map((i) => i.category).filter(Boolean)).size,
@@ -220,56 +219,6 @@ export default function HomeScreen() {
               <Ionicons name="chevron-forward" size={20} color={C.primary} />
             </Pressable>
           </ScrollView>
-
-          <View style={styles.hotHeaderRow}>
-            <Text style={styles.sectionTitle}>Hot Donations</Text>
-            <View style={styles.trendingBadge}>
-              <Text style={styles.trendingText}>TRENDING</Text>
-            </View>
-          </View>
-
-          {loading ? (
-            <ActivityIndicator style={{ marginVertical: 24 }} color={C.primary} />
-          ) : (
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.hScroll}
-            >
-              {hotItems.map((item) => (
-                <Pressable
-                  key={item.id}
-                  style={[styles.hotCard, { width: HOT_CARD_W }]}
-                  onPress={() => openItem(item.id)}
-                >
-                  <View style={styles.hotImgWrap}>
-                    {item.imageUrl ? (
-                      <Image source={{ uri: item.imageUrl }} style={styles.hotImg} />
-                    ) : (
-                      <View style={[styles.hotImg, styles.hotImgPh]}>
-                        <Ionicons name="image-outline" size={36} color={C.textSecondary} />
-                      </View>
-                    )}
-                    
-                    <View style={styles.catBadge}>
-                      <Text style={styles.catBadgeText} numberOfLines={1}>
-                        {item.category}
-                      </Text>
-                    </View>
-                  </View>
-                  <Text style={styles.hotTitle} numberOfLines={2}>
-                    {item.title}
-                  </Text>
-                  <View style={styles.locRow}>
-                    <Ionicons name="location-outline" size={14} color={C.textSecondary} />
-                    <Text style={styles.locText} numberOfLines={1}>
-                      {item.city ?? "Jordan"}
-                    </Text>
-                  </View>
-                </Pressable>
-              ))}
-            </ScrollView>
-          )}
 
           <Text style={[styles.sectionTitle, { marginTop: 22 }]}>Recent Donations</Text>
           {recentItems.map((item) => (

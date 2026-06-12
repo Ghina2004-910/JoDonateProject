@@ -276,12 +276,6 @@ export default function EditProfileScreen() {
             <Text style={styles.sectionTitle}>Privacy</Text>
             <View style={styles.card}>
               <ToggleRow
-                label="Public profile"
-                sub="Others can see your profile summary"
-                value={profilePublic}
-                onValueChange={setProfilePublic}
-              />
-              <ToggleRow
                 label="Show phone"
                 sub="Display phone on your public profile"
                 value={showPhone}

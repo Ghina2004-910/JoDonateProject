@@ -101,12 +101,6 @@ export default function PublicProfileScreen() {
         <ActivityIndicator style={{ marginTop: 60 }} color={C.primary} />
       ) : !profile ? (
         <Text style={styles.emptyText}>User not found.</Text>
-      ) : !profile.profilePublic ? (
-        <View style={styles.privateBox}>
-          <Ionicons name="lock-closed-outline" size={48} color={C.muted} />
-          <Text style={styles.privateTitle}>Private Account</Text>
-          <Text style={styles.privateSub}>This user has set their profile to private.</Text>
-        </View>
       ) : (
         <ScrollView contentContainerStyle={styles.content}>
           {/* Avatar */}

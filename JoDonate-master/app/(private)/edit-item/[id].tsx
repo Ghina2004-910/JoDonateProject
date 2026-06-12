@@ -10,6 +10,7 @@ import {
   ScrollView,
   Modal,
   FlatList,
+  KeyboardAvoidingView,
   Image,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
@@ -23,12 +24,18 @@ import { db } from "@/lib/firebase";
 import { safeGoBack } from "@/lib/navigation";
 
 type CategoryKey =
-  | "Books"
-  | "Furniture"
-  | "Clothes"
+  | "Food & Grocery"
+  | "Clothes & Fashion"
+  | "Services"
+  | "Company Equipment"
+  | "Games"
   | "Electronics"
-  | "Accessories"
-  | "Plants";
+  | "Sports & Fitness"
+  | "Education & Training"
+  | "Pets & Accessories"
+  | "Beauty & Health"
+  | "Books"
+  | "Furniture";
 
 type ItemDoc = {
   title: string;
@@ -44,7 +51,20 @@ export default function EditItemScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
 
   const categories = useMemo<CategoryKey[]>(
-    () => ["Books", "Furniture", "Clothes", "Electronics", "Accessories", "Plants"],
+    () => [
+      "Food & Grocery",
+      "Clothes & Fashion",
+      "Services",
+      "Company Equipment",
+      "Games",
+      "Electronics",
+      "Sports & Fitness",
+      "Education & Training",
+      "Pets & Accessories",
+      "Beauty & Health",
+      "Books",
+      "Furniture",
+    ],
     [],
   );
 
@@ -82,6 +102,13 @@ export default function EditItemScreen() {
         setDescription(data.description ?? "");
         setCategory((data.category as CategoryKey) ?? "");
         setContactNumber(data.contactNumber ?? "");
+        try {
+  const secretSnap = await getDoc(doc(db, "itemSecrets", id));
+  if (secretSnap.exists()) {
+    const secretData = secretSnap.data() as { contactNumber?: string };
+    setContactNumber(secretData.contactNumber ?? data.contactNumber ?? "");
+  }
+} catch {}
         setImageUrl(data.imageUrl ?? "");
       } catch (e) {
         console.log("Edit load error:", e);
@@ -218,7 +245,15 @@ export default function EditItemScreen() {
       {loading ? (
         <Text style={styles.infoText}>Loading...</Text>
       ) : (
-        <ScrollView contentContainerStyle={styles.content}>
+
+        <KeyboardAvoidingView
+  behavior={Platform.OS === "ios" ? "padding" : "height"}
+  style={{ flex: 1 }}
+>
+  <ScrollView 
+    contentContainerStyle={styles.content}
+    keyboardShouldPersistTaps="handled"
+  >
           {/* Image */}
           <Text style={styles.label}>Image</Text>
           <View style={styles.imageRow}>
@@ -285,7 +320,7 @@ export default function EditItemScreen() {
               textAlignVertical="top"
             />
           </View>
-
+          
           {/* Category */}
           <Text style={styles.label}>Category</Text>
           <Pressable style={styles.dropdownBox} onPress={() => setShowCategoryModal(true)}>
@@ -316,6 +351,7 @@ export default function EditItemScreen() {
             <Text style={styles.saveText}>{saving ? "Saving..." : "Save Changes"}</Text>
           </Pressable>
         </ScrollView>
+</KeyboardAvoidingView>
       )}
 
       {/* Category picker modal */}
