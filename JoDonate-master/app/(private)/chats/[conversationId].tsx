@@ -321,11 +321,18 @@ const committeeChat = params.committeeChat === "true";
     setChatAllowed(true);
     return;
   }
-  let cancelled = false;
-  canChatWithPeer(me, peerId, itemIdParam).then((ok) => {
-    if (!cancelled) setChatAllowed(ok);
-  });
-  return () => { cancelled = true; };
+  // اللجنة دايماً مسموحلها تحكي مع أي شخص
+  const checkRole = async () => {
+    const snap = await getDoc(doc(db, "users", me));
+    const role = snap.data()?.role as string | undefined;
+    if (role === "committee") {
+      setChatAllowed(true);
+      return;
+    }
+    const ok = await canChatWithPeer(me, peerId, itemIdParam);
+    setChatAllowed(ok);
+  };
+  void checkRole();
 }, [limitedGuest, me, peerId, itemIdParam, committeeChat]);
 
   const blocked = !!conv.blocked;
@@ -397,29 +404,27 @@ const committeeChat = params.committeeChat === "true";
     if (!conversationId || !me) return;
     const convRef = doc(db, "conversations", conversationId);
     const unsub = onSnapshot(convRef, (s) => {
-      // ─── Fix 3: read blockedBy from snapshot ─────────────────────────
-      const d = s.data() as {
-        blocked?: boolean;
-        blockedBy?: string;
-        itemId?: string;
-        typingUid?: string | null;
-        typingAt?: Timestamp | null;
-        lastMessageAt?: Timestamp | null;
-      };
-      setConv({
-        blocked: d.blocked,
-        blockedBy: d.blockedBy,
-        itemId: d.itemId,
-        typingUid: d.typingUid ?? null,
-        typingAt: d.typingAt ?? null,
-      });
-      // ─────────────────────────────────────────────────────────────────
-      const lm = d.lastMessageAt;
-      if (lm?.toDate && peerId) {
-        const age = Date.now() - lm.toDate().getTime();
-        setOnlineHint(age < 120_000);
-      }
-    });
+  if (!s.exists()) {
+    setConv({});
+    return;
+  }
+
+  const d = s.data() as any;
+
+  setConv({
+    blocked: d?.blocked ?? false,
+    blockedBy: d?.blockedBy ?? null,
+    itemId: d?.itemId,
+    typingUid: d?.typingUid ?? null,
+    typingAt: d?.typingAt ?? null,
+  });
+
+  const lm = d?.lastMessageAt;
+  if (lm?.toDate && peerId) {
+    const age = Date.now() - lm.toDate().getTime();
+    setOnlineHint(age < 120_000);
+  }
+});
     return unsub;
   }, [conversationId, me, peerId]);
 

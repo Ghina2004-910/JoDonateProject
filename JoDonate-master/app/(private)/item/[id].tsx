@@ -198,7 +198,9 @@ const isCommitteeView = committeeView === "true";
 
   const meUid = authUser?.uid;
   const isOwner = !!(meUid && item?.ownerId && meUid === item.ownerId);
-  const canContact = canShowItemContact(item?.ownerId ?? "", meUid, hasApprovedAccess);
+  const isCommitteeItem = item?.donationMode === "committee";
+
+  const canContact =isCommitteeItem || canShowItemContact(item?.ownerId ?? "", meUid, hasApprovedAccess);
 
   const guestGate = useCallback(
     (fn: () => void) => {
@@ -380,28 +382,35 @@ const isCommitteeView = committeeView === "true";
   }
 
   const itemIdStr = typeof id === "string" ? id : "";
-
-  // لو committee donation — الشات يكون مع اللجنة مش المتبرع
   const isCommittee = item?.donationMode === "committee";
-  const peer = isCommittee ? (item?.committeeUid ?? item?.ownerId) : item?.ownerId;
+  const peer = isCommitteeItem
+  ? item?.committeeUid
+  : item?.ownerId;
 
   if (!peer) {
     Alert.alert("Error", "Could not find contact.");
     return;
   }
-  if (me === peer) {
-    Alert.alert("Can't chat", "This listing is yours.");
-    return;
-  }
+  if (!peer) {
+  Alert.alert("Error", "No valid chat target.");
+  return;
+}
 
-  const allowed = await canChatWithPeer(me, peer, itemIdStr || undefined);
+// only block self-chat for normal items
+if (!isCommitteeItem && me === peer) {
+  Alert.alert("Can't chat", "This listing is yours.");
+  return;
+}
+
+  const allowed = isCommitteeItem || (await canChatWithPeer(me, peer, itemIdStr || undefined));
   if (!allowed) {
-    if (isCommittee) {
-      Alert.alert(
-        "Request required",
-        "Messaging is available after the committee approves your request.",
-      );
-    } else {
+  if (item?.donationMode === "committee") {
+    Alert.alert(
+      "Committee item",
+      "You can contact directly without approval."
+    );
+    return;
+  } else {
       Alert.alert(
         "Request required",
         "Messaging is available after the donor approves your donation request.",
