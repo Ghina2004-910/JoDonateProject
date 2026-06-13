@@ -71,6 +71,23 @@ type ItemInfo = {
 };
 
 type Tab = "pending" | "reviewed"| "donations";
+function CommitteeName({ uid }: { uid: string }) {
+  const [name, setName] = useState<string | null>(null);
+  useEffect(() => {
+    getDoc(doc(db, "users", uid)).then((snap) => {
+      if (snap.exists()) {
+        const d = snap.data() as { committeeName?: string; name?: string };
+        setName(d.committeeName ?? d.name ?? "Committee");
+      }
+    });
+  }, [uid]);
+  return (
+    <View style={styles.inlineRow}>
+      <Ionicons name="people-outline" size={13} color={C.muted} />
+      <Text style={styles.mutedText}>Committee: {name ?? "Loading..."}</Text>
+    </View>
+  );
+}
 
 export default function CommitteeReviewsScreen() {
   const router = useRouter();
@@ -82,8 +99,7 @@ export default function CommitteeReviewsScreen() {
   const [itemsMap, setItemsMap] = useState<Record<string, ItemInfo>>({});
   const [activeTab, setActiveTab] = useState<Tab>("pending");
   const [deciding, setDeciding] = useState<string | null>(null);
-  const [committeeItems, setCommitteeItems] = useState<{id: string; title?: string; imageUrl?: string; city?: string; category?: string; donorName?: string; ownerId?: string}[]>([]);
-  const fetchedUsers = useRef(new Set<string>());
+ const [committeeItems, setCommitteeItems] = useState<{id: string; title?: string; imageUrl?: string; city?: string; category?: string; donorName?: string; ownerId?: string; committeeUid?: string}[]>([]);const fetchedUsers = useRef(new Set<string>());
   const fetchedItems = useRef(new Set<string>());
 
   const canAccess = isCommittee || isAdmin;
@@ -182,7 +198,7 @@ export default function CommitteeReviewsScreen() {
   return onSnapshot(q, async (snap) => {
     const items = await Promise.all(
       snap.docs.map(async (d) => {
-        const data = d.data() as { title?: string; imageUrl?: string; city?: string; category?: string; ownerId?: string };
+        const data = d.data() as { title?: string; imageUrl?: string; city?: string; category?: string; ownerId?: string; committeeUid?: string };
         let donorName = "";
         if (data.ownerId) {
           const userSnap = await getDoc(doc(db, "users", data.ownerId));
@@ -533,6 +549,9 @@ export default function CommitteeReviewsScreen() {
             <Text style={styles.mutedText}>Donor: {item.donorName}</Text>
           </View>
         )}
+        {item.committeeUid && (
+  <CommitteeName uid={item.committeeUid} />
+)}
         <View style={{ flexDirection: "column", gap: 8, marginTop: 12 }}>
   <View style={{ flexDirection: "row", gap: 8 }}>
     <Pressable
