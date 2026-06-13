@@ -816,7 +816,7 @@ if (!isCommitteeItem && me === peer) {
             </Pressable>
           </View>
 
-          {similar.length > 0 ? (
+          {similar.length > 0 && !isCommitteeView ? (
             <>
               <Text style={[styles.secTitle, { marginTop: 8 }]}>Similar Donations</Text>
               <ScrollView
