@@ -246,17 +246,32 @@ const isCommitteeView = committeeView === "true";
     };
   }, [id, meUid, item?.ownerId]);
 
-  useEffect(() => {
-    if (!id || !meUid) {
-      setHasApprovedAccess(false);
-      return;
-    }
-    const accessId = `${id}_${meUid}`;
-    const unsub = onSnapshot(doc(db, "requestAccess", accessId), (snap) => {
-      setHasApprovedAccess(snap.exists());
-    });
-    return unsub;
-  }, [id, meUid]);
+ useEffect(() => {
+  if (!id || !meUid) {
+    setHasApprovedAccess(false);
+    return;
+  }
+
+  const unsubList: (() => void)[] = [];
+  unsubList.push(
+    onSnapshot(doc(db, "requestAccess", `${id}_${meUid}`), (snap) => {
+      if (snap.exists()) setHasApprovedAccess(true);
+    })
+  );
+
+  const q = query(
+    collection(db, "requestAccess"),
+    where("requesterId", "==", meUid),
+    where("itemId", "==", id)
+  );
+  unsubList.push(
+    onSnapshot(q, (snap) => {
+      if (!snap.empty) setHasApprovedAccess(true);
+    })
+  );
+
+  return () => unsubList.forEach((u) => u());
+}, [id, meUid]);
 
   useEffect(() => {
     if (!item?.ownerId) {
@@ -357,35 +372,53 @@ const isCommitteeView = committeeView === "true";
   };
 
   const onContactMessage = async () => {
-    setContactOpen(false);
-    const me = getAuthUser()?.uid;
-    const peer = item?.ownerId;
-    if (!me || !peer) {
-      Alert.alert("Sign in required", "Please sign in to message this donor.");
-      return;
-    }
-    if (me === peer) {
-      Alert.alert("Can't chat", "This listing is yours.");
-      return;
-    }
-    const itemIdStr = typeof id === "string" ? id : "";
-    const allowed = await canChatWithPeer(me, peer, itemIdStr || undefined);
-    if (!allowed) {
+  setContactOpen(false);
+  const me = getAuthUser()?.uid;
+  if (!me) {
+    Alert.alert("Sign in required", "Please sign in to message.");
+    return;
+  }
+
+  const itemIdStr = typeof id === "string" ? id : "";
+
+  // لو committee donation — الشات يكون مع اللجنة مش المتبرع
+  const isCommittee = item?.donationMode === "committee";
+  const peer = isCommittee ? (item?.committeeUid ?? item?.ownerId) : item?.ownerId;
+
+  if (!peer) {
+    Alert.alert("Error", "Could not find contact.");
+    return;
+  }
+  if (me === peer) {
+    Alert.alert("Can't chat", "This listing is yours.");
+    return;
+  }
+
+  const allowed = await canChatWithPeer(me, peer, itemIdStr || undefined);
+  if (!allowed) {
+    if (isCommittee) {
+      Alert.alert(
+        "Request required",
+        "Messaging is available after the committee approves your request.",
+      );
+    } else {
       Alert.alert(
         "Request required",
         "Messaging is available after the donor approves your donation request.",
       );
-      return;
     }
-    const conversationId = conversationIdForPair(me, peer);
-    router.push({
-      pathname: "/chats/[conversationId]",
-      params: {
-        conversationId,
-        ...(itemIdStr ? { itemId: itemIdStr } : {}),
-      },
-    });
-  };
+    return;
+  }
+
+  const conversationId = conversationIdForPair(me, peer);
+  router.push({
+    pathname: "/chats/[conversationId]",
+    params: {
+      conversationId,
+      ...(itemIdStr ? { itemId: itemIdStr } : {}),
+    },
+  });
+};
 
   const onRequestDonation = async () => {
     const me = getAuthUser()?.uid;
@@ -693,13 +726,13 @@ const isCommitteeView = committeeView === "true";
   <Pressable style={styles.primaryBtn} onPress={() => router.push("/my-requests")}>
     <Text style={styles.primaryBtnTxt}>View requests</Text>
   </Pressable>
-) : myRequest?.status === "approved" || canContact ?  (
-            <Pressable
-              style={styles.primaryBtn}
-              onPress={() => guestGate(() => void onContactMessage())}
-            >
-              <Text style={styles.primaryBtnTxt}>Message Donor</Text>
-            </Pressable>
+) : myRequest?.status === "approved" || canContact ? (
+  <Pressable
+    style={styles.primaryBtn}
+    onPress={() => guestGate(() => setContactOpen(true))}
+  >
+    <Text style={styles.primaryBtnTxt}>Contact Donor</Text>
+  </Pressable>
           ) : myRequest?.status === "pending" ? (
             <View style={[styles.primaryBtn, styles.primaryBtnDisabled]}>
               <Text style={styles.primaryBtnTxt}>Request pending</Text>

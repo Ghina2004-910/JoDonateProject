@@ -39,3 +39,15 @@ export async function getUserCommitteeId(userId: string): Promise<string> {
   }
   return DEFAULT_COMMITTEE_ID;
 }
+export async function resolveCommitteeUid(committeeId: string): Promise<string | null> {
+  if (!committeeId) return null;
+  const { getDocs, query, collection, where } = await import("firebase/firestore");
+  const q = query(
+    collection(db, "users"),
+    where("committeeId", "==", committeeId),
+    where("role", "in", ["committee", "admin"])
+  );
+  const snap = await getDocs(q);
+  if (snap.empty) return null;
+  return snap.docs[0].id; 
+}

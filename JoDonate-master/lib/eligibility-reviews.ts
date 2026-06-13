@@ -42,17 +42,25 @@ export async function createEligibilityReview(params: {
   });
 
   try {
-    await notifyCommitteeOfNewReview({
-      reviewId: reviewRef.id,
-      requestId: params.requestId,
-      itemId: params.itemId,
-      requesterId: params.requesterId,
-      requesterName: params.requesterName,
-      committeeId,
-    });
-  } catch {
-    // Request creation should succeed even if committee alerts fail (e.g. function not deployed).
-  }
+  const committeeSnap = await getDocs(
+    query(collection(db, "users"), where("committeeId", "==", committeeId), where("role", "in", ["committee", "admin"]))
+  );
+  await Promise.all(
+    committeeSnap.docs.map((memberDoc) =>
+      createInAppNotification({
+        toUserId: memberDoc.id,
+        title: "New donation request",
+        body: `${params.requesterName} requested an item that needs your review.`,
+        type: "committee_review_pending",
+        itemId: params.itemId,
+        requestId: params.requestId,
+        reviewId: reviewRef.id,
+        committeeId,
+      })
+    )
+  );
+} catch {
+}
 
   return reviewRef.id;
 }
@@ -107,8 +115,14 @@ export async function reviewEligibility(
   if (status === "approved" && data.requesterId) {
   // Check if this is a committee donation
   const itemSnap2 = data.itemId ? await getDoc(doc(db, "items", data.itemId)) : null;
-  const itemData2 = itemSnap2?.data() as { donationMode?: string; committeeUid?: string } | undefined;
+  const itemData2 = itemSnap2?.data() as { donationMode?: string; committeeUid?: string; ownerId?: string } | undefined;
   const isCommitteeDonation = itemData2?.donationMode === "committee";
+  const donorId = itemData2?.ownerId ?? data.itemOwnerId;
+
+  const { resolveCommitteeUid } = await import("@/lib/committees");
+  const committeeUid =
+  itemData2?.committeeUid ||
+  (data.committeeId ? await resolveCommitteeUid(data.committeeId) : null);
 
   if (isCommitteeDonation && itemData2?.committeeUid) {
     // Open chat between committee and requester

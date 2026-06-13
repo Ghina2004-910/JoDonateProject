@@ -172,17 +172,30 @@ export default function CommitteeReviewsScreen() {
   const user = getAuthUser();
   if (!user) return;
   const q = isAdmin
-  ? query(
-      collection(db, "items"),
-      where("donationMode", "==", "committee"),
-    )
-  : query(
-      collection(db, "items"),
-      where("donationMode", "==", "committee"),
-      where("committeeUid", "==", user.uid),
-      orderBy("createdAt", "desc"),
+    ? query(collection(db, "items"), where("donationMode", "==", "committee"))
+    : query(
+        collection(db, "items"),
+        where("donationMode", "==", "committee"),
+        where("committeeUid", "==", user.uid),
+        orderBy("createdAt", "desc"),
+      );
+  return onSnapshot(q, async (snap) => {
+    const items = await Promise.all(
+      snap.docs.map(async (d) => {
+        const data = d.data() as { title?: string; imageUrl?: string; city?: string; category?: string; ownerId?: string };
+        let donorName = "";
+        if (data.ownerId) {
+          const userSnap = await getDoc(doc(db, "users", data.ownerId));
+          if (userSnap.exists()) {
+            donorName = (userSnap.data() as { name?: string }).name ?? "";
+          }
+        }
+        return { id: d.id, ...data, donorName };
+      })
     );
-}, [canAccess]);
+    setCommitteeItems(items);
+  });
+}, [canAccess, isAdmin]);
 
   const pendingReviews = useMemo(
     () => reviews.filter((r) => r.status === "pending"),
