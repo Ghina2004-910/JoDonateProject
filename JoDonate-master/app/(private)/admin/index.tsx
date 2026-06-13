@@ -15,11 +15,13 @@ import {
 import React, { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
+  Modal,
   Platform,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from "react-native";
 import { ROUTES } from "@/lib/app-routes";
@@ -41,7 +43,19 @@ const C = {
   danger: "#E24B4A",
 };
 
-type UserRow = { id: string; name?: string; email?: string; role?: UserRole; createdAt?: any; disabled?: boolean };
+ type UserRow = { 
+  id: string; 
+  name?: string; 
+  email?: string; 
+  role?: UserRole; 
+  createdAt?: any; 
+  disabled?: boolean;
+  committeeName?: string;
+  committeeDescription?: string;
+  committeePhone?: string;
+  committeeEmail?: string;
+  committeeCity?: string;
+};
 
 type ItemRow = {
   id: string;
@@ -139,6 +153,14 @@ export default function AdminPanelScreen() {
   const router = useRouter();
   const { isAdmin, loading: profileLoading } = useUserProfile();
   const { signOutApp } = useAuth();
+  const [committeeModalVisible, setCommitteeModalVisible] = useState(false);
+  const [selectedCommitteeUid, setSelectedCommitteeUid] = useState("");
+  const [committeeName, setCommitteeName] = useState("");
+  const [committeeDescription, setCommitteeDescription] = useState("");
+  const [committeePhone, setCommitteePhone] = useState("");
+  const [committeeEmail, setCommitteeEmail] = useState("");
+  const [committeeCity, setCommitteeCity] = useState("");
+  const [viewCommittee, setViewCommittee] = useState<UserRow | null>(null);
 
   const [users, setUsers] = useState<UserRow[]>([]);
   const [items, setItems] = useState<ItemRow[]>([]);
@@ -233,26 +255,55 @@ export default function AdminPanelScreen() {
   };
 
   const setRole = async (uid: string, role: UserRole) => {
-    try {
-      const patch: Record<string, unknown> = { role };
-      if (role === "committee") {
-        patch.committeeId = DEFAULT_COMMITTEE_ID;
-        await setDoc(
-          doc(db, "committeeMembers", `${uid}_${DEFAULT_COMMITTEE_ID}`),
-          {
-            userId: uid,
-            committeeId: DEFAULT_COMMITTEE_ID,
-            active: true,
-            updatedAt: serverTimestamp(),
-          },
-          { merge: true },
-        );
-      }
-      await updateDoc(doc(db, "users", uid), patch);
-    } catch (e: unknown) {
-      crossAlert("Error", e instanceof Error ? e.message : "Failed");
-    }
-  };
+  if (role === "committee") {
+    setSelectedCommitteeUid(uid);
+    setCommitteeName("");
+    setCommitteeDescription("");
+    setCommitteePhone("");
+    setCommitteeEmail("");
+    setCommitteeCity("");
+    setCommitteeModalVisible(true);
+    return;
+  }
+  try {
+    await updateDoc(doc(db, "users", uid), { role });
+  } catch (e: unknown) {
+    crossAlert("Error", e instanceof Error ? e.message : "Failed");
+  }
+};
+
+const saveCommitteeRole = async () => {
+  if (!committeeName.trim()) {
+    crossAlert("Error", "Committee name is required.");
+    return;
+  }
+  try {
+    const patch: Record<string, unknown> = {
+      role: "committee",
+      committeeId: DEFAULT_COMMITTEE_ID,
+      committeeName: committeeName.trim(),
+      committeeDescription: committeeDescription.trim() || null,
+      committeePhone: committeePhone.trim() || null,
+      committeeEmail: committeeEmail.trim() || null,
+      committeeCity: committeeCity.trim() || null,
+    };
+    await setDoc(
+      doc(db, "committeeMembers", `${selectedCommitteeUid}_${DEFAULT_COMMITTEE_ID}`),
+      {
+        userId: selectedCommitteeUid,
+        committeeId: DEFAULT_COMMITTEE_ID,
+        active: true,
+        updatedAt: serverTimestamp(),
+      },
+      { merge: true },
+    );
+    await updateDoc(doc(db, "users", selectedCommitteeUid), patch);
+    setCommitteeModalVisible(false);
+    crossAlert("Done", "Committee member assigned successfully.");
+  } catch (e: unknown) {
+    crossAlert("Error", e instanceof Error ? e.message : "Failed");
+  }
+};
 
   const assignToCommittee = async (req: RequestRow) => {
     if (!req.requesterId || !req.itemId || !req.itemOwnerId) {
@@ -523,6 +574,17 @@ const resolveReport = async (reportId: string, action: "resolved" | "dismissed")
             {users.map((user) => (
               <View key={user.id} style={styles.card}>
                 <Text style={styles.cardTitle}>{user.name ?? "User"}</Text>
+                {user.role === "committee" && user.committeeName && (
+  <Pressable
+    style={[styles.assignBtn, { backgroundColor: "#1976D2", marginTop: 4 }]}
+    onPress={() => {
+  setViewCommittee(user);
+}}
+  >
+    <Ionicons name="information-circle-outline" size={14} color="#fff" />
+    <Text style={styles.assignBtnText}>View Committee Info</Text>
+  </Pressable>
+)}
                 <Text style={styles.mutedText}>{user.email ?? user.id}</Text>
                 <View style={styles.roleRow}>
                   <Text style={styles.roleLabel}>Role: {user.role ?? "user"}</Text>
@@ -620,10 +682,109 @@ const resolveReport = async (reportId: string, action: "resolved" | "dismissed")
           <Ionicons name="log-out-outline" size={20} color="#fff" />
           <Text style={styles.logoutText}>Sign Out</Text>
         </Pressable>
+        <Modal visible={committeeModalVisible} transparent animationType="slide">
+  <View style={styles.modalBackdrop}>
+    <View style={styles.modalCard}>
+      <Text style={styles.modalTitle}>Committee Information</Text>
 
+      <TextInput
+        style={styles.modalInput}
+        placeholder="Committee Name *"
+        placeholderTextColor={C.muted}
+        value={committeeName}
+        onChangeText={setCommitteeName}
+      />
+      <TextInput
+        style={styles.modalInput}
+        placeholder="Description"
+        placeholderTextColor={C.muted}
+        value={committeeDescription}
+        onChangeText={setCommitteeDescription}
+        multiline
+      />
+      <TextInput
+        style={styles.modalInput}
+        placeholder="Phone"
+        placeholderTextColor={C.muted}
+        value={committeePhone}
+        onChangeText={setCommitteePhone}
+        keyboardType="phone-pad"
+      />
+      <TextInput
+        style={styles.modalInput}
+        placeholder="Email"
+        placeholderTextColor={C.muted}
+        value={committeeEmail}
+        onChangeText={setCommitteeEmail}
+        keyboardType="email-address"
+        autoCapitalize="none"
+      />
+      <TextInput
+        style={styles.modalInput}
+        placeholder="City"
+        placeholderTextColor={C.muted}
+        value={committeeCity}
+        onChangeText={setCommitteeCity}
+      />
+
+      <View style={{ flexDirection: "row", gap: 10, marginTop: 12 }}>
+        <Pressable
+          style={[styles.assignBtn, { flex: 1, backgroundColor: C.muted, alignSelf: "auto" }]}
+          onPress={() => setCommitteeModalVisible(false)}
+        >
+          <Text style={styles.assignBtnText}>Cancel</Text>
+        </Pressable>
+        <Pressable
+          style={[styles.assignBtn, { flex: 2, backgroundColor: C.primary, alignSelf: "auto" }]}
+          onPress={() => void saveCommitteeRole()}
+        >
+          <Text style={styles.assignBtnText}>Save & Assign</Text>
+        </Pressable>
+      </View>
+    </View>
+  </View>
+</Modal>
         <View style={{ height: 40 }} />
       </ScrollView>
+      <Modal visible={!!viewCommittee} transparent animationType="fade">
+  <Pressable style={styles.modalBackdrop} onPress={() => setViewCommittee(null)}>
+    <Pressable style={styles.modalCard} onPress={() => {}}>
+      <View style={{ flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 16 }}>
+        <View style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: C.primary + "20", alignItems: "center", justifyContent: "center" }}>
+          <Ionicons name="people" size={24} color={C.primary} />
+        </View>
+        <Text style={{ fontSize: 18, fontWeight: "800", color: C.text, flex: 1 }}>
+          {viewCommittee?.committeeName ?? "Committee"}
+        </Text>
+      </View>
+
+      {[
+        { icon: "document-text-outline" as const, label: "Description", value: viewCommittee?.committeeDescription },
+        { icon: "call-outline" as const, label: "Phone", value: viewCommittee?.committeePhone },
+        { icon: "mail-outline" as const, label: "Email", value: viewCommittee?.committeeEmail },
+        { icon: "location-outline" as const, label: "City", value: viewCommittee?.committeeCity },
+        { icon: "person-outline" as const, label: "Manager", value: viewCommittee?.name },
+      ].map((row) => row.value ? (
+        <View key={row.label} style={{ flexDirection: "row", gap: 10, marginBottom: 12, alignItems: "flex-start" }}>
+          <Ionicons name={row.icon} size={18} color={C.primary} style={{ marginTop: 2 }} />
+          <View style={{ flex: 1 }}>
+            <Text style={{ fontSize: 11, color: C.muted, fontWeight: "600" }}>{row.label}</Text>
+            <Text style={{ fontSize: 14, color: C.text, fontWeight: "600" }}>{row.value}</Text>
+          </View>
+        </View>
+      ) : null)}
+
+      <Pressable
+        style={{ backgroundColor: C.primary, borderRadius: 10, paddingVertical: 12, alignItems: "center", marginTop: 8 }}
+        onPress={() => setViewCommittee(null)}
+      >
+        <Text style={{ color: "#fff", fontWeight: "800" }}>Close</Text>
+      </Pressable>
+    </Pressable>
+  </Pressable>
+</Modal>
     </View>
+    
   );
 }
 
@@ -818,4 +979,31 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   logoutText: { color: "#fff", fontWeight: "800", fontSize: 15 },
+  modalBackdrop: {
+  flex: 1,
+  backgroundColor: "rgba(0,0,0,0.45)",
+  justifyContent: "flex-end",
+},
+modalCard: {
+  backgroundColor: C.card,
+  borderTopLeftRadius: 16,
+  borderTopRightRadius: 16,
+  padding: 22,
+  paddingBottom: Platform.OS === "ios" ? 36 : 22,
+  gap: 10,
+},
+modalTitle: {
+  fontSize: 16,
+  fontWeight: "800",
+  color: C.text,
+  marginBottom: 6,
+},
+modalInput: {
+  backgroundColor: "#F0F0F0",
+  borderRadius: 10,
+  paddingHorizontal: 14,
+  paddingVertical: 12,
+  fontSize: 14,
+  color: C.text,
+},
 });

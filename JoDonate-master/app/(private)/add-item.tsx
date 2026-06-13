@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useRouter } from "expo-router";
-import { addDoc, collection, doc, getDoc, onSnapshot, serverTimestamp } from "firebase/firestore";
+import { addDoc, collection, doc, getDoc, onSnapshot, query, serverTimestamp, setDoc, where } from "firebase/firestore";
 import { uploadToCloudinary } from "@/lib/cloudinaryService";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
@@ -206,6 +206,10 @@ export default function AddItemScreen() {
   const [optFcfs, setOptFcfs] = useState(false);
   const [optAnonymous, setOptAnonymous] = useState(false);
   const [optUrgent, setOptUrgent] = useState(false);
+  const [donationMode, setDonationMode] = useState<"public" | "committee">("public");
+  const [selectedCommitteeUid, setSelectedCommitteeUid] = useState("");
+  const [committees, setCommittees] = useState<{ id: string; committeeName?: string; committeeCity?: string }[]>([]);
+  const [committeeModalOpen, setCommitteeModalOpen] = useState(false);
 
   const [pickerOpen, setPickerOpen] = useState(false);
   const [pickerTitle, setPickerTitle] = useState("");
@@ -280,6 +284,8 @@ export default function AddItemScreen() {
     setOptFcfs(false);
     setOptAnonymous(false);
     setOptUrgent(false);
+    setDonationMode("public");
+    setSelectedCommitteeUid("");
     setStep1Err(null);
     setStep2Err(null);
     setStep3Err(null);
@@ -297,14 +303,26 @@ export default function AddItemScreen() {
   }, [limitedGuest, router]);
 
   useEffect(() => {
-    const u = getAuthUser();
-    if (!u || limitedGuest) return;
-    const unsub = onSnapshot(doc(db, "users", u.uid), (snap) => {
-      const d = snap.data() as { phone?: string } | undefined;
-      if (d?.phone && !contactPhone) setContactPhone(d.phone);
-    });
-    return unsub;
-  }, [limitedGuest, contactPhone]);
+  const q = query(collection(db, "users"), where("role", "==", "committee"));
+  const unsub = onSnapshot(q, (snap) => {
+    setCommittees(
+      snap.docs
+        .map((d) => ({ id: d.id, ...(d.data() as { committeeName?: string; committeeCity?: string }) }))
+        .filter((c) => !!c.committeeName),
+    );
+  });
+  return unsub;
+}, []);
+
+useEffect(() => {
+  const u = getAuthUser();
+  if (!u || limitedGuest) return;
+  const unsub = onSnapshot(doc(db, "users", u.uid), (snap) => {
+    const d = snap.data() as { phone?: string } | undefined;
+    if (d?.phone && !contactPhone) setContactPhone(d.phone);
+  });
+  return unsub;
+}, [limitedGuest, contactPhone]);
 
   const openPicker = useCallback((title: string, options: string[], apply: (v: string) => void) => {
     setPickerTitle(title);
@@ -541,6 +559,10 @@ export default function AddItemScreen() {
   };
 
   const validateStep3 = () => {
+    if (donationMode === "committee" && !selectedCommitteeUid) {
+      setStep3Err("Please select a committee.");
+      return false;
+    }
     if (!phoneJordanOk(contactPhone)) {
       setStep3Err("Enter a valid Jordan number (+9627… or 07…).");
       return false;
@@ -552,7 +574,6 @@ export default function AddItemScreen() {
     setStep3Err(null);
     return true;
   };
-
   const listingCondition = useMemo(() => {
     if (kind === "clothes") return clothCondition;
     if (kind === "books") return bookCondition;
@@ -592,6 +613,8 @@ export default function AddItemScreen() {
       optFcfs,
       optAnonymous,
       optUrgent,
+      donationMode,
+      committeeUid: donationMode === "committee" ? selectedCommitteeUid : null,
     };
 
     if (kind === "food") {
@@ -754,6 +777,38 @@ export default function AddItemScreen() {
         contactPhone.trim(),
         contactEmail.trim() || null,
       );
+      if (donationMode === "committee" && selectedCommitteeUid) {
+  await addDoc(collection(db, "notifications"), {
+    toUserId: selectedCommitteeUid,
+    fromUserId: user.uid,
+    title: "New Committee Donation",
+    body: `A donor assigned a new item "${title.trim()}" to your committee for distribution.`,
+    type: "committee_donation",
+    itemId: refDoc.id,
+    read: false,
+    createdAt: serverTimestamp(),
+  });
+}
+if (donationMode === "committee" && selectedCommitteeUid) {
+  const { conversationIdForPair } = require("@/lib/chat-utils");
+const conversationId = conversationIdForPair(user.uid, selectedCommitteeUid);
+await setDoc(
+  doc(db, "conversations", conversationId),
+    {
+      participants: [user.uid, selectedCommitteeUid],
+      participantNames: {
+        [user.uid]: payload.donorName,
+        [selectedCommitteeUid]: committees.find(c => c.id === selectedCommitteeUid)?.committeeName ?? "Committee",
+      },
+      itemId: refDoc.id,
+      lastMessageAt: serverTimestamp(),
+      unreadBy: { [selectedCommitteeUid]: 1 },
+      blocked: false,
+      archivedFor: [],
+    },
+    { merge: true },
+  );
+}
       await AsyncStorage.removeItem(ADD_ITEM_DRAFT_KEY);
       // ─── Fix: reset all fields after successful publish ─────────────
       resetForm();
@@ -1050,6 +1105,69 @@ export default function AddItemScreen() {
                 onChangeText={setPickupAvailability}
                 multiline
               />
+              <Text style={styles.sectionTitle}>Donation Type</Text>
+<View style={{ flexDirection: "row", gap: 10, marginBottom: 12 }}>
+  <Pressable
+    style={[
+      styles.catChip,
+      { flex: 1 },
+      donationMode === "public" && styles.catChipOn,
+    ]}
+    onPress={() => {
+      setDonationMode("public");
+      setSelectedCommitteeUid("");
+    }}
+  >
+    <Text style={[styles.catChipTxt, donationMode === "public" && styles.catChipTxtOn]}>
+      🌍 Public
+    </Text>
+  </Pressable>
+  <Pressable
+    style={[
+      styles.catChip,
+      { flex: 1 },
+      donationMode === "committee" && styles.catChipOn,
+    ]}
+    onPress={() => setDonationMode("committee")}
+  >
+    <Text style={[styles.catChipTxt, donationMode === "committee" && styles.catChipTxtOn]}>
+      🤝 Via Committee
+    </Text>
+  </Pressable>
+</View>
+
+{donationMode === "committee" && (
+  <View style={{ marginBottom: 12 }}>
+    <Text style={styles.fieldLbl}>Select Committee *</Text>
+    {committees.length === 0 ? (
+      <Text style={[styles.muted, { marginBottom: 8 }]}>No committees available.</Text>
+    ) : (
+      committees.map((c) => (
+        <Pressable
+          key={c.id}
+          style={[
+            styles.inputRow,
+            { marginBottom: 8 },
+            selectedCommitteeUid === c.id && { borderColor: C.primary, borderWidth: 2 },
+          ]}
+          onPress={() => setSelectedCommitteeUid(c.id)}
+        >
+          <Ionicons
+            name={selectedCommitteeUid === c.id ? "radio-button-on" : "radio-button-off"}
+            size={20}
+            color={selectedCommitteeUid === c.id ? C.primary : C.muted}
+          />
+          <View style={{ flex: 1 }}>
+            <Text style={styles.inputLike}>{c.committeeName}</Text>
+            {c.committeeCity ? (
+              <Text style={{ fontSize: 12, color: C.muted }}>{c.committeeCity}</Text>
+            ) : null}
+          </View>
+        </Pressable>
+      ))
+    )}
+  </View>
+)}
 
               <Text style={styles.sectionTitle}>Additional options</Text>
               <ToggleRow label="Require proof of identity" value={optProof} onToggle={setOptProof} />

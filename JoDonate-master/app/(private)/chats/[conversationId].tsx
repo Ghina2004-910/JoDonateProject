@@ -230,9 +230,14 @@ const ChatBubble = React.memo(
 
 export default function ChatThreadScreen() {
   const router = useRouter();
-  const params = useLocalSearchParams<{ conversationId: string; itemId?: string }>();
+  const params = useLocalSearchParams<{ 
+  conversationId: string; 
+  itemId?: string; 
+  committeeChat?: string; 
+}>();
+const itemIdParam = typeof params.itemId === "string" ? params.itemId : undefined;
+const committeeChat = params.committeeChat === "true";
   const conversationId = typeof params.conversationId === "string" ? params.conversationId : "";
-  const itemIdParam = typeof params.itemId === "string" ? params.itemId : undefined;
 
   const { limitedGuest } = useAuth();
   const me = getAuthUser()?.uid ?? "";
@@ -307,15 +312,21 @@ export default function ChatThreadScreen() {
     };
   }, [limitedGuest, me, peerId, itemIdParam]);
 
-  useEffect(() => {
-    if (chatAllowed !== false) return;
-    if (limitedGuest) return;
-    Alert.alert(
-      "Request required",
-      "You can message after a donation request is approved.",
-      [{ text: "OK", onPress: () => safeGoBack(router, "/chats") }],
-    );
-  }, [chatAllowed, limitedGuest, router]);
+ useEffect(() => {
+  if (limitedGuest || !me || !peerId) {
+    setChatAllowed(false);
+    return;
+  }
+  if (committeeChat) {
+    setChatAllowed(true);
+    return;
+  }
+  let cancelled = false;
+  canChatWithPeer(me, peerId, itemIdParam).then((ok) => {
+    if (!cancelled) setChatAllowed(ok);
+  });
+  return () => { cancelled = true; };
+}, [limitedGuest, me, peerId, itemIdParam, committeeChat]);
 
   const blocked = !!conv.blocked;
   const typingVisible =
@@ -585,28 +596,15 @@ useEffect(() => {
   // ───────────────────────────────────────────────────────────────────────
 
   const onDeleteChat = () => {
-  Alert.alert("Delete conversation", "Choose an option:", [
+  Alert.alert("Delete conversation", "This will delete the chat for you only.", [
     { text: "Cancel", style: "cancel" },
     {
-      text: "Delete for me",
+      text: "Delete",
+      style: "destructive",
       onPress: async () => {
         await updateDoc(doc(db, "conversations", conversationId), {
           archivedFor: arrayUnion(me),
         });
-        safeGoBack(router, "/chats");
-      },
-    },
-    {
-      text: "Delete for everyone",
-      style: "destructive",
-      onPress: async () => {
-        const batch = writeBatch(db);
-        const msgsSnap = await getDocs(
-          collection(db, "conversations", conversationId, "messages")
-        );
-        msgsSnap.forEach((d) => batch.delete(d.ref));
-        batch.delete(doc(db, "conversations", conversationId));
-        await batch.commit();
         safeGoBack(router, "/chats");
       },
     },
@@ -651,10 +649,10 @@ useEffect(() => {
 
   return (
     <KeyboardAvoidingView
-      style={styles.screen}
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
-      keyboardVerticalOffset={Platform.OS === "ios" ? 8 : 0}
-    >
+  style={styles.screen}
+  behavior={Platform.OS === "ios" ? "padding" : "height"}
+  keyboardVerticalOffset={Platform.OS === "ios" ? 8 : 0}
+>
       <View style={styles.header}>
         <Pressable hitSlop={12} style={styles.iconBtn} onPress={() => safeGoBack(router, "/chats")}>
           <Ionicons name="arrow-back" size={22} color={C.primary} />
@@ -887,44 +885,29 @@ useEffect(() => {
       </Modal>
 
       <Modal transparent visible={!!msgMenu} animationType="fade">
-        <Pressable style={styles.overlay} onPress={() => setMsgMenu(null)}>
-          <View style={styles.menuCard}>
-            <Pressable
-              style={styles.menuRow}
-              onPress={async () => {
-                if (msgMenu?.text) await Clipboard.setStringAsync(msgMenu.text);
-                setMsgMenu(null);
-              }}
-            >
-              <Text style={styles.menuTxt}>Copy</Text>
-            </Pressable>
-            <Pressable
-              style={styles.menuRow}
-              onPress={() => {
-                if (msgMenu) setReplyTo(msgMenu);
-                setMsgMenu(null);
-              }}
-            >
-              <Text style={styles.menuTxt}>Reply</Text>
-            </Pressable>
-            {msgMenu?.senderId === me ? (
-              <Pressable
-                style={styles.menuRow}
-                onPress={async () => {
-                  if (msgMenu)
-                    await updateDoc(doc(db, "conversations", conversationId, "messages", msgMenu.id), {
-                      text: "[deleted]",
-                      imageUrl: deleteField(),
-                    });
-                  setMsgMenu(null);
-                }}
-              >
-                <Text style={[styles.menuTxt, { color: "#C62828" }]}>Delete</Text>
-              </Pressable>
-            ) : null}
-          </View>
-        </Pressable>
-      </Modal>
+  <Pressable style={styles.overlay} onPress={() => setMsgMenu(null)}>
+    <View style={styles.menuCard}>
+      <Pressable
+        style={styles.menuRow}
+        onPress={async () => {
+          if (msgMenu?.text) await Clipboard.setStringAsync(msgMenu.text);
+          setMsgMenu(null);
+        }}
+      >
+        <Text style={styles.menuTxt}>Copy</Text>
+      </Pressable>
+      <Pressable
+        style={styles.menuRow}
+        onPress={() => {
+          if (msgMenu) setReplyTo(msgMenu);
+          setMsgMenu(null);
+        }}
+      >
+        <Text style={styles.menuTxt}>Reply</Text>
+      </Pressable>
+    </View>
+  </Pressable>
+</Modal>
 
       <Modal visible={!!previewUri} transparent animationType="fade">
         <Pressable style={styles.fullImgBg} onPress={() => setPreviewUri(null)}>

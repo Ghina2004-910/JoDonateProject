@@ -90,6 +90,13 @@ export async function canChatWithPeer(
 ): Promise<boolean> {
   if (!me || !peerId || me === peerId) return false;
   if (itemId) return hasApprovedRequestForItem(itemId, me, peerId);
+  
+  // Check direct requestAccess between users (committee chat)
+  const accessA = await getDoc(doc(db, "requestAccess", `${peerId}_${me}`));
+if (accessA.exists()) return true;
+const accessB = await getDoc(doc(db, "requestAccess", `${me}_${peerId}`));
+if (accessB.exists()) return true;
+
   return hasApprovedRequestBetweenUsers(me, peerId);
 }
 
@@ -137,7 +144,15 @@ export async function createDonationRequest(
     createdAt: serverTimestamp(),
   });
 
-  const committeeId = await resolveCommitteeIdForItem(itemId);
+  const itemDataForCommittee = itemSnap.data() as { committeeUid?: string; donationMode?: string };
+const committeeId = itemDataForCommittee.donationMode === "committee" && itemDataForCommittee.committeeUid
+  ? itemDataForCommittee.committeeUid
+  : await resolveCommitteeIdForItem(itemId);
+  // If committee donation, assign directly to that committee
+const itemData = itemSnap.data() as { committeeUid?: string; donationMode?: string };
+const effectiveCommitteeId = itemData.donationMode === "committee" && itemData.committeeUid
+  ? itemData.committeeUid
+  : committeeId;
 
   await createEligibilityReview({
     requestId: requestRef.id,
@@ -145,7 +160,7 @@ export async function createDonationRequest(
     requesterId,
     itemOwnerId,
     requesterName,
-    committeeId,
+    committeeId: effectiveCommitteeId,
   });
 
   await runTransaction(db, async (tx) => {

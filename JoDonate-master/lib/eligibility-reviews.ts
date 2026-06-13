@@ -105,6 +105,42 @@ export async function reviewEligibility(
   };
 
   if (status === "approved" && data.requesterId) {
+  // Check if this is a committee donation
+  const itemSnap2 = data.itemId ? await getDoc(doc(db, "items", data.itemId)) : null;
+  const itemData2 = itemSnap2?.data() as { donationMode?: string; committeeUid?: string } | undefined;
+  const isCommitteeDonation = itemData2?.donationMode === "committee";
+
+  if (isCommitteeDonation && itemData2?.committeeUid) {
+    // Open chat between committee and requester
+    const { conversationIdForPair } = await import("@/lib/chat-utils");
+    const { setDoc, doc: fsDoc } = await import("firebase/firestore");
+    const conversationId = conversationIdForPair(data.requesterId, itemData2.committeeUid);
+    const accessId = `${data.requesterId}_${itemData2.committeeUid}`;
+    await setDoc(fsDoc(db, "requestAccess", accessId), {
+      itemId: data.itemId ?? "committee_direct",
+      requesterId: data.requesterId,
+      itemOwnerId: itemData2.committeeUid,
+    }, { merge: true });
+    await setDoc(fsDoc(db, "conversations", conversationId), {
+      participants: [data.requesterId, itemData2.committeeUid],
+      lastMessageAt: serverTimestamp(),
+      unreadBy: { [data.requesterId]: 1 },
+      blocked: false,
+      archivedFor: [],
+      itemId: data.itemId,
+    }, { merge: true });
+    await createInAppNotification({
+      toUserId: data.requesterId,
+      title: "Request approved",
+      body: "The committee approved your request. You can now chat with them.",
+      type: "eligibility_approved",
+      itemId: data.itemId ?? null,
+      requestId: data.requestId ?? null,
+      reviewId,
+      committeeId: data.committeeId ?? null,
+      fromUserId: reviewerId,
+    });
+  } else {
     await createInAppNotification({
       toUserId: data.requesterId,
       title: "Eligibility approved",
@@ -130,7 +166,7 @@ export async function reviewEligibility(
       });
     }
   }
-
+}
   if (status === "rejected" && data.requestId && data.itemId) {
     const requestRef = doc(db, "requests", data.requestId);
     const itemRef = doc(db, "items", data.itemId);

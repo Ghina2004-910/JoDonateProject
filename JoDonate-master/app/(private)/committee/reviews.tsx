@@ -12,6 +12,7 @@ import {
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   FlatList,
   Image,
   Platform,
@@ -69,7 +70,7 @@ type ItemInfo = {
   city?: string;
 };
 
-type Tab = "pending" | "reviewed";
+type Tab = "pending" | "reviewed"| "donations";
 
 export default function CommitteeReviewsScreen() {
   const router = useRouter();
@@ -81,6 +82,7 @@ export default function CommitteeReviewsScreen() {
   const [itemsMap, setItemsMap] = useState<Record<string, ItemInfo>>({});
   const [activeTab, setActiveTab] = useState<Tab>("pending");
   const [deciding, setDeciding] = useState<string | null>(null);
+  const [committeeItems, setCommitteeItems] = useState<{id: string; title?: string; imageUrl?: string; city?: string; category?: string; donorName?: string; ownerId?: string}[]>([]);
   const fetchedUsers = useRef(new Set<string>());
   const fetchedItems = useRef(new Set<string>());
 
@@ -165,6 +167,23 @@ export default function CommitteeReviewsScreen() {
     }
   }, [profileLoading, canAccess, router]);
 
+  useEffect(() => {
+  if (!canAccess) return;
+  const user = getAuthUser();
+  if (!user) return;
+  const q = isAdmin
+  ? query(
+      collection(db, "items"),
+      where("donationMode", "==", "committee"),
+    )
+  : query(
+      collection(db, "items"),
+      where("donationMode", "==", "committee"),
+      where("committeeUid", "==", user.uid),
+      orderBy("createdAt", "desc"),
+    );
+}, [canAccess]);
+
   const pendingReviews = useMemo(
     () => reviews.filter((r) => r.status === "pending"),
     [reviews],
@@ -234,7 +253,7 @@ export default function CommitteeReviewsScreen() {
     );
   }
 
-  const currentData = activeTab === "pending" ? pendingReviews : reviewedReviews;
+  const currentData = activeTab === "pending" ? pendingReviews : activeTab === "reviewed" ? reviewedReviews : [];
 
   const renderReviewCard = ({ item }: { item: ReviewDoc }) => {
     const requester = item.requesterId ? usersMap[item.requesterId] : null;
@@ -403,7 +422,9 @@ export default function CommitteeReviewsScreen() {
     <View style={styles.screen}>
       {/* Header */}
       <View style={styles.header}>
-        <View style={{ width: 24 }} />
+        <Pressable onPress={() => router.push("/(private)/committee-settings")} hitSlop={12}>
+  <Ionicons name="settings-outline" size={22} color="#fff" />
+</Pressable>
         <View style={styles.headerCenter}>
           <Text style={styles.headerTitle}>Committee Reviews</Text>
           <Text style={styles.headerSub}>
@@ -435,25 +456,113 @@ export default function CommitteeReviewsScreen() {
 
       {/* Tabs */}
       <View style={styles.tabsContainer}>
-        <Pressable
-          style={[styles.tab, activeTab === "pending" && styles.activeTab]}
-          onPress={() => setActiveTab("pending")}
-        >
-          <Text style={[styles.tabText, activeTab === "pending" && styles.activeTabText]}>
-            Pending ({stats.pending})
-          </Text>
-        </Pressable>
-        <Pressable
-          style={[styles.tab, activeTab === "reviewed" && styles.activeTab]}
-          onPress={() => setActiveTab("reviewed")}
-        >
-          <Text style={[styles.tabText, activeTab === "reviewed" && styles.activeTabText]}>
-            Reviewed ({stats.approved + stats.rejected})
-          </Text>
-        </Pressable>
+  <Pressable
+    style={[styles.tab, activeTab === "pending" && styles.activeTab]}
+    onPress={() => setActiveTab("pending")}
+  >
+    <Text style={[styles.tabText, activeTab === "pending" && styles.activeTabText]}>
+      Pending ({stats.pending})
+    </Text>
+  </Pressable>
+  <Pressable
+    style={[styles.tab, activeTab === "reviewed" && styles.activeTab]}
+    onPress={() => setActiveTab("reviewed")}
+  >
+    <Text style={[styles.tabText, activeTab === "reviewed" && styles.activeTabText]}>
+      Reviewed ({stats.approved + stats.rejected})
+    </Text>
+  </Pressable>
+  <Pressable
+    style={[styles.tab, activeTab === "donations" && styles.activeTab]}
+    onPress={() => setActiveTab("donations")}
+  >
+    <Text style={[styles.tabText, activeTab === "donations" && styles.activeTabText]}>
+      Donations ({committeeItems.length})
+    </Text>
+  </Pressable>
+</View>
+
+{activeTab === "donations" && (
+  <FlatList
+    data={committeeItems}
+    keyExtractor={(r) => r.id}
+    contentContainerStyle={styles.listContent}
+    ListEmptyComponent={
+      <View style={styles.emptyContainer}>
+        <Ionicons name="gift-outline" size={48} color={C.muted} />
+        <Text style={styles.emptyText}>No items assigned to your committee</Text>
       </View>
+    }
+    renderItem={({ item }) => (
+      <View style={styles.card}>
+        {item.imageUrl ? (
+          <Image source={{ uri: item.imageUrl }} style={styles.itemImage} />
+        ) : (
+          <View style={styles.imagePlaceholder}>
+            <Ionicons name="image-outline" size={32} color={C.muted} />
+          </View>
+        )}
+        <Text style={styles.itemTitle}>{item.title ?? "—"}</Text>
+        {item.category && (
+          <View style={styles.badge}>
+            <Text style={styles.badgeText}>{item.category}</Text>
+          </View>
+        )}
+        {item.city && (
+          <View style={styles.inlineRow}>
+            <Ionicons name="location-outline" size={13} color={C.muted} />
+            <Text style={styles.mutedText}>{item.city}</Text>
+          </View>
+        )}
+        {item.donorName && (
+          <View style={styles.inlineRow}>
+            <Ionicons name="person-outline" size={13} color={C.muted} />
+            <Text style={styles.mutedText}>Donor: {item.donorName}</Text>
+          </View>
+        )}
+        <View style={{ flexDirection: "column", gap: 8, marginTop: 12 }}>
+  <View style={{ flexDirection: "row", gap: 8 }}>
+    <Pressable
+      style={[styles.btn, { backgroundColor: "#1976D2", flex: 0, paddingHorizontal: 30 }]}
+      onPress={() => router.push({ pathname: "/item/[id]", params: { id: item.id, committeeView: "true" } })}
+    >
+      <Ionicons name="eye-outline" size={16} color="#fff" />
+      <Text style={styles.btnText}>View Item</Text>
+    </Pressable>
+    <Pressable
+      style={[styles.btn, { backgroundColor: C.primary, flex: 0, paddingHorizontal: 25 }]}
+      onPress={() => router.push({
+        pathname: "/(private)/committee-item-requests/[itemId]" as any,
+        params: { itemId: item.id },
+      })}
+    >
+      <Ionicons name="people-outline" size={16} color="#fff" />
+      <Text style={styles.btnText}>View Requests</Text>
+    </Pressable>
+  </View>
+  <Pressable
+    style={[styles.btn, { backgroundColor: C.green, flex: 0, paddingHorizontal: 25 }]}
+    onPress={async () => {
+      const { doc: fsDoc, updateDoc, serverTimestamp } = require("firebase/firestore");
+      await updateDoc(fsDoc(db, "items", item.id), {
+        status: "donated",
+        distributedAt: serverTimestamp(),
+      });
+      Alert.alert("Done", "Item marked as distributed.");
+    }}
+  >
+    <Ionicons name="checkmark-circle-outline" size={16} color="#fff" />
+    <Text style={styles.btnText}>Mark as Distributed</Text>
+  </Pressable>
+</View>
+      </View>
+    )}
+  />
+)}
+
 
       {/* Review Cards */}
+      {activeTab !== "donations" && (
       <FlatList
         data={currentData}
         keyExtractor={(r) => r.id}
@@ -474,6 +583,7 @@ export default function CommitteeReviewsScreen() {
           </View>
         }
       />
+      )}
 
       {/* Bottom Logout */}
       <Pressable style={styles.logoutBtn} onPress={handleLogout}>

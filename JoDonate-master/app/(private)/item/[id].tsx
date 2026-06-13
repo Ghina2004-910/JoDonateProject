@@ -131,6 +131,9 @@ type ItemDoc = {
   
   pickupLocation?: string;
   availabilityNote?: string;
+
+  donationMode?: string;
+  committeeUid?: string;
 };
 
 type OwnerProfile = {
@@ -162,7 +165,11 @@ function formatDateLabel(v?: string | unknown): string {
 
 export default function ItemDetailsScreen() {
   const router = useRouter();
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, committeeView } = useLocalSearchParams<{ 
+  id: string; 
+  committeeView?: string; 
+}>();
+const isCommitteeView = committeeView === "true";
   const { limitedGuest, user: authUser } = useAuth();
   const viewBump = useRef(false);
 
@@ -395,7 +402,7 @@ export default function ItemDetailsScreen() {
       await createDonationRequest(String(id), item.ownerId, me);
       const req = await findActiveRequest(String(id), me);
       setMyRequest(req);
-      Alert.alert("Request sent", "The donor will review your request.");
+      Alert.alert("Request sent", "The committee will review your request.");
     } catch (e: unknown) {
       const msg =
         e && typeof e === "object" && "message" in e ? String((e as Error).message) : "Failed";
@@ -590,6 +597,21 @@ export default function ItemDetailsScreen() {
             {item.title}
           </Text>
           <View style={styles.titleRow}>
+            {item.donationMode === "committee" && (
+  <Pressable
+    style={[styles.condBadge, { backgroundColor: "#1976D2" }]}
+    onPress={() => {
+      if (item.committeeUid) {
+        router.push({
+          pathname: "/(private)/committee/[uid]" as any,
+          params: { uid: item.committeeUid },
+        });
+      }
+    }}
+  >
+    <Text style={[styles.condBadgeTxt, { color: "#fff" }]}>Via Committee — View Info</Text>
+  </Pressable>
+)}
             {item.condition ? (
               <View style={styles.condBadge}>
                 <Text style={styles.condBadgeTxt}>{item.condition}</Text>
@@ -667,12 +689,11 @@ export default function ItemDetailsScreen() {
           </View>
 
           {specs}
-
-          {isOwner ? (
-            <Pressable style={styles.primaryBtn} onPress={() => router.push("/my-requests")}>
-              <Text style={styles.primaryBtnTxt}>View requests</Text>
-            </Pressable>
-          ) : myRequest?.status === "approved" || canContact ? (
+         {!isCommitteeView && (isOwner ? (
+  <Pressable style={styles.primaryBtn} onPress={() => router.push("/my-requests")}>
+    <Text style={styles.primaryBtnTxt}>View requests</Text>
+  </Pressable>
+) : myRequest?.status === "approved" || canContact ?  (
             <Pressable
               style={styles.primaryBtn}
               onPress={() => guestGate(() => void onContactMessage())}
@@ -684,20 +705,47 @@ export default function ItemDetailsScreen() {
               <Text style={styles.primaryBtnTxt}>Request pending</Text>
             </View>
           ) : item.status === "available" || item.status === "requested" ? (
-            <Pressable
-              style={[styles.primaryBtn, requestSubmitting && { opacity: 0.7 }]}
-              disabled={requestSubmitting}
-              onPress={() => guestGate(() => void onRequestDonation())}
-            >
-              <Text style={styles.primaryBtnTxt}>
-                {requestSubmitting ? "Sending…" : "Request donation"}
-              </Text>
-            </Pressable>
+  item.donationMode === "committee" ? (
+  <View>
+    <Pressable
+      style={[styles.primaryBtn, requestSubmitting && { opacity: 0.7 }]}
+      disabled={requestSubmitting}
+      onPress={() => guestGate(() => void onRequestDonation())}
+    >
+      <Text style={styles.primaryBtnTxt}>
+        {requestSubmitting ? "Sending…" : "Request via Committee"}
+      </Text>
+    </Pressable>
+    <Pressable
+      style={[styles.primaryBtn, { marginTop: 10, backgroundColor: "#1976D2" }]}
+      onPress={() => {
+        if (item.committeeUid) {
+          router.push({
+            pathname: "/(private)/committee/[uid]" as any,
+            params: { uid: item.committeeUid },
+          });
+        }
+      }}
+    >
+      <Text style={styles.primaryBtnTxt}>View Committee Info</Text>
+    </Pressable>
+  </View>
+  ) : (
+    <Pressable
+      style={[styles.primaryBtn, requestSubmitting && { opacity: 0.7 }]}
+      disabled={requestSubmitting}
+      onPress={() => guestGate(() => void onRequestDonation())}
+    >
+      <Text style={styles.primaryBtnTxt}>
+        {requestSubmitting ? "Sending…" : "Request donation"}
+      </Text>
+    </Pressable>
+  )
           ) : (
             <View style={[styles.primaryBtn, styles.primaryBtnDisabled]}>
               <Text style={styles.primaryBtnTxt}>Not available</Text>
             </View>
-          )}
+          ))}
 
           <View style={styles.secActions}>
             <Pressable
@@ -774,7 +822,7 @@ export default function ItemDetailsScreen() {
         </View>
       </ScrollView>
 
-      <PrivateBottomNav active="donations" />
+      {!isCommitteeView && <PrivateBottomNav active="donations" />}
 
       <Modal transparent visible={loginOpen} animationType="fade">
         <Pressable style={styles.overlay} onPress={() => setLoginOpen(false)}>
