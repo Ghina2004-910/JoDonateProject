@@ -35,7 +35,7 @@ export const DEMO_ACCOUNTS: DemoAccount[] = [
   },
   {
     key: "committee",
-    label: "Committee",
+    label: "Aid Committee",
     email: "committee@jodonate.demo",
     password: DEMO_PASSWORD,
     role: "committee",
@@ -54,14 +54,7 @@ export const DEMO_ACCOUNTS: DemoAccount[] = [
     password: DEMO_PASSWORD,
     role: "user",
   },
-  {
-    key: "guest",
-    label: "Guest",
-    email: DEMO_GUEST_EMAIL,
-    password: DEMO_PASSWORD,
-    role: "user",
-    browseOnly: true,
-  },
+  
 ];
 
 export function isDemoLoginEnabled(): boolean {

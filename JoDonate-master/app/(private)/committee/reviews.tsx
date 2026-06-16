@@ -110,12 +110,16 @@ export default function CommitteeReviewsScreen() {
 const isDefaultCommittee = effectiveId === DEFAULT_COMMITTEE_ID;
 
 const q = isAdmin || isDefaultCommittee
-  ? query(collection(db, "eligibilityReviews"), orderBy("createdAt", "desc"))
+  ? query(
+      collection(db, "eligibilityReviews"),
+      orderBy("createdAt", "desc")
+    )
   : query(
       collection(db, "eligibilityReviews"),
-      where("committeeId", "in", [effectiveId, DEFAULT_COMMITTEE_ID]),
-      orderBy("createdAt", "desc"),
+      where("committeeId", "==", effectiveId),
+      orderBy("createdAt", "desc")
     );
+    
     return onSnapshot(q, (snap) => {
       const docs = snap.docs.map((d) => ({
         id: d.id,
