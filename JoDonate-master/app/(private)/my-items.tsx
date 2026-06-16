@@ -113,27 +113,43 @@ export default function MyItemsScreen() {
     }
 
     const q = query(
-      collection(db, "items"),
-      where("ownerId", "==", user.uid),
-      orderBy("createdAt", "desc"),
-    );
+  collection(db, "items"),
+  where("ownerId", "==", user.uid),
+  orderBy("createdAt", "desc"),
+);
 
     const unsub = onSnapshot(
-      q,
-      async (snap) => {
-        const data: ItemDoc[] = snap.docs.map((d) => ({
-          id: d.id,
-          ...(d.data() as Omit<ItemDoc, "id">),
-        }));
-        setItems(data);
-        setLoading(false);
-        await fetchRecipients(data);
-      },
-      (err) => {
-        console.warn("MyItems query error:", err);
-        setLoading(false);
-      },
-    );
+  q,
+  async (snap) => {
+    const data: ItemDoc[] = snap.docs.map((d) => ({
+      id: d.id,
+      ...(d.data() as Omit<ItemDoc, "id">),
+    }));
+
+    const statusPriority = (s?: string) => {
+      const st = (s ?? "available").toLowerCase();
+      if (st === "accepted") return 0;
+      if (st === "requested") return 1;
+      if (st === "available") return 2;
+      return 3; // donated
+    };
+
+    const sorted = [...data].sort((a, b) => {
+      const pa = statusPriority(a.status);
+      const pb = statusPriority(b.status);
+      if (pa !== pb) return pa - pb;
+      return 0;
+    });
+
+    setItems(sorted);
+    setLoading(false);
+    await fetchRecipients(sorted);
+  },
+  (err) => {
+    console.warn("MyItems query error:", err);
+    setLoading(false);
+  },
+);
 
     return unsub;
   }, [user, fetchRecipients]);

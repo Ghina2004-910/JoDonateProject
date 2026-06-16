@@ -778,6 +778,16 @@ useEffect(() => {
         contactEmail.trim() || null,
       );
       if (donationMode === "committee" && selectedCommitteeUid) {
+  const { setDoc, doc: fsDoc } = await import("firebase/firestore");
+  const accessId = `${user.uid}_${selectedCommitteeUid}`;
+  await setDoc(fsDoc(db, "requestAccess", accessId), {
+    itemId: refDoc.id,
+    requesterId: user.uid,
+    itemOwnerId: selectedCommitteeUid,
+    isCommitteeChat: true,
+  }, { merge: true });
+}
+      if (donationMode === "committee" && selectedCommitteeUid) {
   await addDoc(collection(db, "notifications"), {
     toUserId: selectedCommitteeUid,
     fromUserId: user.uid,

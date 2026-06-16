@@ -274,8 +274,8 @@ export default function MyRequestsScreen() {
 
         tx.update(requestRef, { status: "approved" });
 
-        tx.update(itemRef, { status: "accepted" });
-
+        tx.update(itemRef, { status: "accepted", updatedAt: serverTimestamp() });
+        
         const accessRef = doc(db, "requestAccess", `${req.itemId}_${req.requesterId}`);
         tx.set(accessRef, {
           itemId: req.itemId,
@@ -348,12 +348,13 @@ export default function MyRequestsScreen() {
           throw new Error("You are not the owner of this item.");
         }
 
+        const accessRef = doc(db, "requestAccess", `${req.itemId}_${req.requesterId}`);
+        const accessSnap = await tx.get(accessRef);
+
         tx.update(requestRef, { status: "rejected" });
 
         tx.update(itemRef, { status: "available" });
 
-        const accessRef = doc(db, "requestAccess", `${req.itemId}_${req.requesterId}`);
-        const accessSnap = await tx.get(accessRef);
         if (accessSnap.exists()) tx.delete(accessRef);
 
         const notifRef = doc(collection(db, "notifications"));

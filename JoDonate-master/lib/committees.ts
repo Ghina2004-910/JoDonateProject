@@ -15,28 +15,25 @@ export function committeeIdFromCity(city?: string): string {
 }
 
 export async function resolveCommitteeIdForItem(itemId: string): Promise<string> {
-  return DEFAULT_COMMITTEE_ID;
+  const itemSnap = await getDoc(doc(db, "items", itemId));
+  if (!itemSnap.exists()) return DEFAULT_COMMITTEE_ID;
+  const data = itemSnap.data() as { city?: string };
+  return resolveCommitteeIdForCity(data.city);
 }
 
 export async function resolveCommitteeIdForCity(city?: string): Promise<string> {
   const candidate = committeeIdFromCity(city);
   if (candidate === DEFAULT_COMMITTEE_ID) return DEFAULT_COMMITTEE_ID;
 
-  const committeeSnap = await getDoc(doc(db, "committees", candidate));
-  if (committeeSnap.exists() && committeeSnap.data()?.active !== false) {
-    return candidate;
-  }
-  return DEFAULT_COMMITTEE_ID;
-}
+  const { getDocs, query, collection, where } = await import("firebase/firestore");
+  const q = query(
+    collection(db, "users"),
+    where("committeeId", "==", candidate),
+    where("role", "==", "committee"),
+  );
+  const snap = await getDocs(q);
+  if (!snap.empty) return candidate;
 
-export async function getUserCommitteeId(userId: string): Promise<string> {
-  const userSnap = await getDoc(doc(db, "users", userId));
-  if (userSnap.exists()) {
-    const committeeId = String(
-      (userSnap.data() as { committeeId?: string }).committeeId ?? "",
-    ).trim();
-    if (committeeId) return committeeId;
-  }
   return DEFAULT_COMMITTEE_ID;
 }
 export async function resolveCommitteeUid(committeeId: string): Promise<string | null> {

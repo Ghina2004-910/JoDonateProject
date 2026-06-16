@@ -166,51 +166,60 @@ export default function CommitteeProfileScreen() {
 {/* Message Button */}
 <Pressable
   style={[styles.card, { backgroundColor: C.primary, alignItems: "center", flexDirection: "row", justifyContent: "center", gap: 10 }]}
-  onPress={async () => {
-    const { getAuthUser } = require("@/lib/auth-user");
-    const me = getAuthUser()?.uid;
-    if (!me) {
-      Alert.alert("Sign in required", "Please sign in to message.");
-      return;
-    }
-    if (me === uid) return;
-    try {
-      const { conversationIdForPair } = require("@/lib/chat-utils");
-      const { setDoc, doc: fsDoc, serverTimestamp } = require("firebase/firestore");
-      const conversationId = conversationIdForPair(me, uid);
-      const accessId = `${me}_${uid}`;
-await setDoc(
-  fsDoc(db, "requestAccess", accessId),
-  {
-    itemId: "committee_direct",
-    requesterId: me,
-    itemOwnerId: uid,
-  },
-  { merge: true },
-);
-      await setDoc(
-        fsDoc(db, "conversations", conversationId),
-        {
-          participants: [me, uid],
-          participantNames: {
-            [me]: "User",
-            [uid]: profile.committeeName ?? "Committee",
-          },
-          lastMessageAt: serverTimestamp(),
-          unreadBy: {},
-          blocked: false,
-          archivedFor: [],
+ onPress={async () => {
+  const { getAuthUser } = require("@/lib/auth-user");
+  const me = getAuthUser()?.uid;
+  if (!me) {
+    Alert.alert("Sign in required", "Please sign in to message.");
+    return;
+  }
+  if (me === uid) return;
+
+  // Check if user has approved request
+  const { getDocs, collection: col, query: q, where } = require("firebase/firestore");
+ const { DEFAULT_COMMITTEE_ID } = require("@/lib/committees");
+  const accessSnap = await getDocs(q(
+    col(db, "eligibilityReviews"),
+    where("requesterId", "==", me),
+    where("committeeId", "==", profile.committeeId ?? DEFAULT_COMMITTEE_ID),
+    where("status", "==", "approved"),
+  ));
+
+  if (accessSnap.empty) {
+    Alert.alert(
+      "Request required",
+      "You need to submit a donation request first. The committee will contact you after approval.",
+    );
+    return;
+  }
+
+  try {
+    const { conversationIdForPair } = require("@/lib/chat-utils");
+    const { setDoc, doc: fsDoc, serverTimestamp } = require("firebase/firestore");
+    const conversationId = conversationIdForPair(me, uid);
+    await setDoc(
+      fsDoc(db, "conversations", conversationId),
+      {
+        participants: [me, uid],
+        participantNames: {
+          [me]: "User",
+          [uid]: profile.committeeName ?? "Committee",
         },
-        { merge: true },
-      );
-      router.push({
-  pathname: "/chats/[conversationId]",
-  params: { conversationId, itemId: accessId },
-});
-    } catch {
-      Alert.alert("Error", "Could not open chat.");
-    }
-  }}
+        lastMessageAt: serverTimestamp(),
+        unreadBy: {},
+        blocked: false,
+        archivedFor: [],
+      },
+      { merge: true },
+    );
+    router.push({
+      pathname: "/chats/[conversationId]",
+      params: { conversationId },
+    });
+  } catch {
+    Alert.alert("Error", "Could not open chat.");
+  }
+}}
 >
   <Ionicons name="chatbubble-outline" size={20} color="#fff" />
   <Text style={{ color: "#fff", fontWeight: "800", fontSize: 15 }}>Message Committee</Text>

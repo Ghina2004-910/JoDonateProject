@@ -566,27 +566,78 @@ export default function CommitteeReviewsScreen() {
       onPress={() => router.push({
         pathname: "/(private)/committee-item-requests/[itemId]" as any,
         params: { itemId: item.id },
+        
       })}
     >
+
       <Ionicons name="people-outline" size={16} color="#fff" />
       <Text style={styles.btnText}>View Requests</Text>
     </Pressable>
+    
   </View>
   <Pressable
     style={[styles.btn, { backgroundColor: C.green, flex: 0, paddingHorizontal: 25 }]}
     onPress={async () => {
-      const { doc: fsDoc, updateDoc, serverTimestamp } = require("firebase/firestore");
-      await updateDoc(fsDoc(db, "items", item.id), {
-        status: "donated",
-        distributedAt: serverTimestamp(),
-      });
-      Alert.alert("Done", "Item marked as distributed.");
+  const { doc: fsDoc, updateDoc, addDoc, collection: col, serverTimestamp } = require("firebase/firestore");
+  await updateDoc(fsDoc(db, "items", item.id), {
+    status: "donated",
+    distributedAt: serverTimestamp(),
+  });
+  if (item.ownerId) {
+    await addDoc(col(db, "notifications"), {
+      toUserId: item.ownerId,
+      fromUserId: getAuthUser()?.uid ?? null,
+      title: "Item Distributed",
+      body: `Your donated item "${item.title ?? "item"}" has been distributed by the committee.`,
+      type: "item_distributed",
+      itemId: item.id,
+      read: false,
+      createdAt: serverTimestamp(),
+    });
+  }
+  Alert.alert("Done", "Item marked as distributed.");
     }}
   >
     <Ionicons name="checkmark-circle-outline" size={16} color="#fff" />
     <Text style={styles.btnText}>Mark as Distributed</Text>
   </Pressable>
 </View>
+<Pressable
+  style={[styles.btn, { backgroundColor: "#00897B", flex: 0, paddingHorizontal: 16, marginTop: 8 }]}
+  onPress={async () => {
+    const me = getAuthUser()?.uid;
+    if (!me || !item.ownerId) return;
+    const { conversationIdForPair } = require("@/lib/chat-utils");
+    const conversationId = conversationIdForPair(me, item.ownerId);
+    const { setDoc, doc: fsDoc, serverTimestamp } = require("firebase/firestore");
+    const accessId = `${item.ownerId}_${me}`;
+    await setDoc(fsDoc(db, "requestAccess", accessId), {
+      itemId: item.id ?? "committee_direct",
+      requesterId: item.ownerId,
+      itemOwnerId: me,
+      isCommitteeChat: true,
+    }, { merge: true });
+    await setDoc(fsDoc(db, "conversations", conversationId), {
+      participants: [me, item.ownerId],
+      participantNames: {
+        [me]: "Committee",
+        [item.ownerId]: item.donorName ?? "Donor",
+      },
+      itemId: item.id,
+      lastMessageAt: serverTimestamp(),
+      unreadBy: {},
+      blocked: false,
+      archivedFor: [],
+    }, { merge: true });
+    router.push({
+      pathname: "/chats/[conversationId]",
+      params: { conversationId, itemId: accessId },
+    });
+  }}
+>
+  <Ionicons name="chatbubble-outline" size={16} color="#fff" />
+  <Text style={styles.btnText}>Message Donor</Text>
+</Pressable>
       </View>
     )}
   />

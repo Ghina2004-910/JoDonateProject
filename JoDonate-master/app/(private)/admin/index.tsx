@@ -62,7 +62,9 @@ type ItemRow = {
   title?: string;
   status?: string;
   userId?: string;
+  ownerId?: string;
   ownerName?: string;
+  donorName?: string;
   createdAt?: any;
   category?: string;
   description?: string;
@@ -278,9 +280,14 @@ const saveCommitteeRole = async () => {
     return;
   }
   try {
+    const { committeeIdFromCity } = await import("@/lib/committees");
+    const resolvedCommitteeId = committeeCity.trim()
+      ? committeeIdFromCity(committeeCity.trim())
+      : DEFAULT_COMMITTEE_ID;
+
     const patch: Record<string, unknown> = {
       role: "committee",
-      committeeId: DEFAULT_COMMITTEE_ID,
+      committeeId: resolvedCommitteeId,
       committeeName: committeeName.trim(),
       committeeDescription: committeeDescription.trim() || null,
       committeePhone: committeePhone.trim() || null,
@@ -288,10 +295,10 @@ const saveCommitteeRole = async () => {
       committeeCity: committeeCity.trim() || null,
     };
     await setDoc(
-      doc(db, "committeeMembers", `${selectedCommitteeUid}_${DEFAULT_COMMITTEE_ID}`),
+      doc(db, "committeeMembers", `${selectedCommitteeUid}_${resolvedCommitteeId}`),
       {
         userId: selectedCommitteeUid,
-        committeeId: DEFAULT_COMMITTEE_ID,
+        committeeId: resolvedCommitteeId,
         active: true,
         updatedAt: serverTimestamp(),
       },
@@ -496,8 +503,8 @@ const resolveReport = async (reportId: string, action: "resolved" | "dismissed")
                   </View>
                   {item.category && <Text style={styles.mutedText}>Category: {item.category}</Text>}
                   <Text style={styles.mutedText}>
-                    Owner: {item.ownerName || userMap[item.userId ?? ""] || item.userId?.slice(0, 8) || "—"}
-                  </Text>
+  Owner: {userMap[item.ownerId ?? ""] || item.donorName || item.ownerName || "—"}
+</Text>
                   <Text style={styles.mutedSmall}>Created: {formatDate(item.createdAt)}</Text>
                   {item.description && (
                     <Text style={styles.mutedSmall} numberOfLines={2}>{item.description}</Text>

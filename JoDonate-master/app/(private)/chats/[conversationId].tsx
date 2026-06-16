@@ -321,7 +321,7 @@ const committeeChat = params.committeeChat === "true";
     setChatAllowed(true);
     return;
   }
-  // اللجنة دايماً مسموحلها تحكي مع أي شخص
+  
   const checkRole = async () => {
     const snap = await getDoc(doc(db, "users", me));
     const role = snap.data()?.role as string | undefined;
@@ -525,6 +525,17 @@ useEffect(() => {
         [`unreadBy.${peerId}`]: increment(1),
         [`unreadBy.${me}`]: 0,
       });
+      // Send notification to peer
+await addDoc(collection(db, "notifications"), {
+  toUserId: peerId,
+  fromUserId: me,
+  title: "New message",
+  body: text || "Sent a photo",
+  type: "message",
+  conversationId: conversationId,
+  read: false,
+  createdAt: serverTimestamp(),
+});
       setInput("");
       setReplyTo(null);
     } catch (e: unknown) {

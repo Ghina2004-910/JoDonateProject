@@ -48,6 +48,7 @@ type Notif = {
   body: string;
   type: string;
   itemId: string;
+  conversationId?: string;
   read: boolean;
   createdAt?: unknown;
 };
@@ -189,10 +190,17 @@ export default function NotificationsScreen() {
       router.push("/committee/reviews");
       return;
     }
-    if (t.includes("message") || t.includes("chat")) {
-      router.push("/chats");
-      return;
-    }
+   if (t.includes("message") || t.includes("chat")) {
+  if (item.conversationId) {
+    router.push({
+      pathname: "/chats/[conversationId]",
+      params: { conversationId: item.conversationId },
+    });
+  } else {
+    router.push("/chats");
+  }
+  return;
+}
     if (item.itemId) {
       router.push({ pathname: "/item/[id]", params: { id: item.itemId } });
       return;

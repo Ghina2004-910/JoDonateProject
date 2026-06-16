@@ -89,13 +89,16 @@ export async function canChatWithPeer(
   itemId?: string,
 ): Promise<boolean> {
   if (!me || !peerId || me === peerId) return false;
-  if (itemId) return hasApprovedRequestForItem(itemId, me, peerId);
+  if (itemId) {
+    const byItem = await hasApprovedRequestForItem(itemId, me, peerId);
+    if (byItem) return true;
+  }
   
-  // Check direct requestAccess between users (committee chat)
-  const accessA = await getDoc(doc(db, "requestAccess", `${peerId}_${me}`));
-if (accessA.exists()) return true;
-const accessB = await getDoc(doc(db, "requestAccess", `${me}_${peerId}`));
-if (accessB.exists()) return true;
+  // Check direct requestAccess between users
+  const accessA = await getDoc(doc(db, "requestAccess", `${me}_${peerId}`));
+  if (accessA.exists()) return true;
+  const accessB = await getDoc(doc(db, "requestAccess", `${peerId}_${me}`));
+  if (accessB.exists()) return true;
 
   return hasApprovedRequestBetweenUsers(me, peerId);
 }
@@ -144,15 +147,14 @@ export async function createDonationRequest(
     createdAt: serverTimestamp(),
   });
 
-  const itemDataForCommittee = itemSnap.data() as { committeeUid?: string; donationMode?: string };
-const committeeId = itemDataForCommittee.donationMode === "committee" && itemDataForCommittee.committeeUid
-  ? itemDataForCommittee.committeeUid
-  : await resolveCommitteeIdForItem(itemId);
-  // If committee donation, assign directly to that committee
-const itemData = itemSnap.data() as { committeeUid?: string; donationMode?: string };
-const effectiveCommitteeId = itemData.donationMode === "committee" && itemData.committeeUid
-  ? itemData.committeeUid
-  : committeeId;
+ const itemDataForCommittee = itemSnap.data() as { committeeUid?: string; donationMode?: string; committeeId?: string; city?: string };
+  let effectiveCommitteeId: string;
+  if (itemDataForCommittee.donationMode === "committee" && itemDataForCommittee.committeeUid) {
+    effectiveCommitteeId = itemDataForCommittee.committeeUid;
+  } else {
+    effectiveCommitteeId = await resolveCommitteeIdForItem(itemId);
+  }
+  const committeeId = effectiveCommitteeId;
 
   await createEligibilityReview({
     requestId: requestRef.id,

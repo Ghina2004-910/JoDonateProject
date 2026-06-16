@@ -341,7 +341,7 @@ else rows.sort((a, b) => itemTime(b) - itemTime(a)); // Newest default
       <View style={styles.header}>
         <View style={[styles.headerInner, { maxWidth: MAX_W }]}>
           <View style={styles.headerTop}>
-            <Text style={styles.pageTitle}>All Donations</Text>
+            <Text style={styles.pageTitle}>All Donations</Text> 
             <View style={styles.headerActions}>
               <Pressable onPress={() => setView("grid")}>
                 <Ionicons
@@ -380,6 +380,12 @@ else rows.sort((a, b) => itemTime(b) - itemTime(a)); // Newest default
             onChangeText={setSearch}
           />
         </View>
+        <Pressable
+  style={[styles.chip, { backgroundColor: "#B39A86", width: "100%", paddingVertical: 14, marginTop: 8, marginBottom:9 }]}
+  onPress={() => router.push("/(private)/committees" as any)}
+>
+  <Text style={[styles.chipTxt, { color: "#fff", textAlign: "center" }]}>All Committees</Text>
+</Pressable>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chips}>
           <Pressable
             style={[
@@ -475,7 +481,7 @@ else rows.sort((a, b) => itemTime(b) - itemTime(a)); // Newest default
   <View style={styles.modalBackdrop}>
     <View style={styles.modalCard}>
 
-      {/* Header ثابت */}
+      {/* Header */}
       <View style={styles.modalHead}>
         <Text style={styles.modalTitle}>Filters</Text>
         <Pressable onPress={() => setFilterOpen(false)}>

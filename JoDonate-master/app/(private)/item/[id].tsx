@@ -200,7 +200,7 @@ const isCommitteeView = committeeView === "true";
   const isOwner = !!(meUid && item?.ownerId && meUid === item.ownerId);
   const isCommitteeItem = item?.donationMode === "committee";
 
-  const canContact =isCommitteeItem || canShowItemContact(item?.ownerId ?? "", meUid, hasApprovedAccess);
+  const canContact = canShowItemContact(item?.ownerId ?? "", meUid, hasApprovedAccess);
 
   const guestGate = useCallback(
     (fn: () => void) => {
@@ -697,15 +697,14 @@ if (!isCommitteeItem && me === peer) {
                 </View>
               </View>
             </Pressable>
-            {!isOwner ? (
-              <Pressable style={styles.contactOutline} onPress={openContactOrLogin}>
-                <Text style={styles.contactOutlineTxt}>
-                  {canContact ? "Contact Donor" : "Contact (after approval)"}
-                </Text>
-              </Pressable>
-            ) : null}
+           {!isOwner && item.donationMode !== "committee" ? (
+  <Pressable style={styles.contactOutline} onPress={openContactOrLogin}>
+    <Text style={styles.contactOutlineTxt}>
+      {canContact ? "Contact Donor" : "Contact (after approval)"}
+    </Text>
+  </Pressable>
+) : null}
           </View>
-
           <Text style={styles.secTitle}>Description</Text>
           <Text style={styles.desc}>{descShown}</Text>
           {descLong ? (
@@ -732,23 +731,37 @@ if (!isCommitteeItem && me === peer) {
 
           {specs}
          {!isCommitteeView && (isOwner ? (
-  <Pressable style={styles.primaryBtn} onPress={() => router.push("/my-requests")}>
-    <Text style={styles.primaryBtnTxt}>View requests</Text>
-  </Pressable>
+  item.donationMode === "committee" && item.committeeUid ? (
+    <Pressable
+      style={styles.primaryBtn}
+      onPress={() => {
+        const conversationId = conversationIdForPair(meUid!, item.committeeUid!);
+        router.push({
+          pathname: "/chats/[conversationId]",
+          params: { conversationId, itemId: String(id) },
+        });
+      }}
+    >
+      <Text style={styles.primaryBtnTxt}>Contact Committee</Text>
+    </Pressable>
+  ) : (
+    <Pressable style={styles.primaryBtn} onPress={() => router.push("/my-requests")}>
+      <Text style={styles.primaryBtnTxt}>View requests</Text>
+    </Pressable>
+  )
 ) : myRequest?.status === "approved" || canContact ? (
   <Pressable
     style={styles.primaryBtn}
     onPress={() => guestGate(() => setContactOpen(true))}
   >
-    <Text style={styles.primaryBtnTxt}>Contact Donor</Text>
+    <Text style={styles.primaryBtnTxt}>Contact</Text>
   </Pressable>
-          ) : myRequest?.status === "pending" ? (
-            <View style={[styles.primaryBtn, styles.primaryBtnDisabled]}>
-              <Text style={styles.primaryBtnTxt}>Request pending</Text>
-            </View>
-          ) : item.status === "available" || item.status === "requested" ? (
+) : myRequest?.status === "pending" ? (
+  <View style={[styles.primaryBtn, styles.primaryBtnDisabled]}>
+    <Text style={styles.primaryBtnTxt}>Request pending</Text>
+  </View>
+) : item.status === "available" || item.status === "requested" ? (
   item.donationMode === "committee" ? (
-  <View>
     <Pressable
       style={[styles.primaryBtn, requestSubmitting && { opacity: 0.7 }]}
       disabled={requestSubmitting}
@@ -758,20 +771,6 @@ if (!isCommitteeItem && me === peer) {
         {requestSubmitting ? "Sending…" : "Request via Committee"}
       </Text>
     </Pressable>
-    <Pressable
-      style={[styles.primaryBtn, { marginTop: 10, backgroundColor: "#1976D2" }]}
-      onPress={() => {
-        if (item.committeeUid) {
-          router.push({
-            pathname: "/(private)/committee/[uid]" as any,
-            params: { uid: item.committeeUid },
-          });
-        }
-      }}
-    >
-      <Text style={styles.primaryBtnTxt}>View Committee Info</Text>
-    </Pressable>
-  </View>
   ) : (
     <Pressable
       style={[styles.primaryBtn, requestSubmitting && { opacity: 0.7 }]}
@@ -783,11 +782,11 @@ if (!isCommitteeItem && me === peer) {
       </Text>
     </Pressable>
   )
-          ) : (
-            <View style={[styles.primaryBtn, styles.primaryBtnDisabled]}>
-              <Text style={styles.primaryBtnTxt}>Not available</Text>
-            </View>
-          ))}
+) : (
+  <View style={[styles.primaryBtn, styles.primaryBtnDisabled]}>
+    <Text style={styles.primaryBtnTxt}>Not available</Text>
+  </View>
+))}
 
           <View style={styles.secActions}>
             <Pressable
