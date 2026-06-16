@@ -25,42 +25,74 @@ export async function createEligibilityReview(params: {
   requesterName: string;
   committeeId?: string;
 }): Promise<string> {
-  const committeeId =
+  const resolvedCommitteeId =
     params.committeeId?.trim() ||
     (await resolveCommitteeIdForItem(params.itemId)) ||
     DEFAULT_COMMITTEE_ID;
 
+  // دايماً نخزن review واحد بس للجنة المحافظة (أو default لو ما في لجنة مخصصة)
   const reviewRef = await addDoc(collection(db, "eligibilityReviews"), {
     requestId: params.requestId,
     itemId: params.itemId,
     requesterId: params.requesterId,
     itemOwnerId: params.itemOwnerId,
     requesterName: params.requesterName,
-    committeeId,
+    committeeId: resolvedCommitteeId,
     status: "pending" satisfies EligibilityStatus,
     createdAt: serverTimestamp(),
   });
 
+  // أشعر لجنة المحافظة المخصصة
   try {
-  const committeeSnap = await getDocs(
-    query(collection(db, "users"), where("committeeId", "==", committeeId), where("role", "in", ["committee", "admin"]))
-  );
-  await Promise.all(
-    committeeSnap.docs.map((memberDoc) =>
-      createInAppNotification({
-        toUserId: memberDoc.id,
-        title: "New donation request",
-        body: `${params.requesterName} requested an item that needs your review.`,
-        type: "committee_review_pending",
-        itemId: params.itemId,
-        requestId: params.requestId,
-        reviewId: reviewRef.id,
-        committeeId,
-      })
-    )
-  );
-} catch {
-}
+    const committeeSnap = await getDocs(
+      query(
+        collection(db, "users"),
+        where("committeeId", "==", resolvedCommitteeId),
+        where("role", "in", ["committee", "admin"]),
+      )
+    );
+    await Promise.all(
+      committeeSnap.docs.map((memberDoc) =>
+        createInAppNotification({
+          toUserId: memberDoc.id,
+          title: "New donation request",
+          body: `${params.requesterName} requested an item that needs your review.`,
+          type: "committee_review_pending",
+          itemId: params.itemId,
+          requestId: params.requestId,
+          reviewId: reviewRef.id,
+          committeeId: resolvedCommitteeId,
+        })
+      )
+    );
+  } catch {}
+
+  // لو اللجنة مش الـ default، أشعر Aid Committee كمان (بس إشعار، بدون review ثاني)
+  if (resolvedCommitteeId !== DEFAULT_COMMITTEE_ID) {
+    try {
+      const aidSnap = await getDocs(
+        query(
+          collection(db, "users"),
+          where("committeeId", "==", DEFAULT_COMMITTEE_ID),
+          where("role", "in", ["committee", "admin"]),
+        )
+      );
+      await Promise.all(
+        aidSnap.docs.map((memberDoc) =>
+          createInAppNotification({
+            toUserId: memberDoc.id,
+            title: "New donation request (CC)",
+            body: `${params.requesterName} requested an item in another governorate.`,
+            type: "committee_review_pending",
+            itemId: params.itemId,
+            requestId: params.requestId,
+            reviewId: reviewRef.id,
+            committeeId: resolvedCommitteeId,
+          })
+        )
+      );
+    } catch {}
+  }
 
   return reviewRef.id;
 }

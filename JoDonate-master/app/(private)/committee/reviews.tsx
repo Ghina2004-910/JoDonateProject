@@ -106,13 +106,16 @@ export default function CommitteeReviewsScreen() {
 
   useEffect(() => {
     if (profileLoading || !canAccess) return;
-    const q = isAdmin
-      ? query(collection(db, "eligibilityReviews"), orderBy("createdAt", "desc"))
-      : query(
-          collection(db, "eligibilityReviews"),
-          where("committeeId", "==", committeeId || DEFAULT_COMMITTEE_ID),
-          orderBy("createdAt", "desc"),
-        );
+    const effectiveId = committeeId || DEFAULT_COMMITTEE_ID;
+const isDefaultCommittee = effectiveId === DEFAULT_COMMITTEE_ID;
+
+const q = isAdmin || isDefaultCommittee
+  ? query(collection(db, "eligibilityReviews"), orderBy("createdAt", "desc"))
+  : query(
+      collection(db, "eligibilityReviews"),
+      where("committeeId", "in", [effectiveId, DEFAULT_COMMITTEE_ID]),
+      orderBy("createdAt", "desc"),
+    );
     return onSnapshot(q, (snap) => {
       const docs = snap.docs.map((d) => ({
         id: d.id,

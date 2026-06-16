@@ -77,7 +77,7 @@ export default function CommitteesScreen() {
         </View>
       ) : (
         <View style={{ flex: 1, flexDirection: "row" }}>
-          {/* Tabs - قائمة اللجان */}
+          {/* Tabs */}
           <View style={styles.tabList}>
             {committees.map((c) => (
               <Pressable
