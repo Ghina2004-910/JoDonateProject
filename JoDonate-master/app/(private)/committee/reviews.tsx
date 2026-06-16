@@ -71,6 +71,17 @@ type ItemInfo = {
 };
 
 type Tab = "pending" | "reviewed"| "donations";
+const CITY_TO_COMMITTEE: Record<string, string> = {
+  amman: "amman",
+  irbid: "irbid",
+  ajlun: "ajlun",
+  ajloun: "ajlun",
+  mafraq: "mafraq",
+  salt: "salt",
+  zarqa: "zarqa",
+  jerash: "jerash",
+  jarash: "jerash",
+};
 function CommitteeName({ uid }: { uid: string }) {
   const [name, setName] = useState<string | null>(null);
   useEffect(() => {
@@ -107,25 +118,53 @@ export default function CommitteeReviewsScreen() {
   useEffect(() => {
     if (profileLoading || !canAccess) return;
     const effectiveId = committeeId || DEFAULT_COMMITTEE_ID;
-const isDefaultCommittee = effectiveId === DEFAULT_COMMITTEE_ID;
+    const isDefaultCommittee = effectiveId === DEFAULT_COMMITTEE_ID;
 
-const q = isAdmin || isDefaultCommittee
-  ? query(
-      collection(db, "eligibilityReviews"),
-      orderBy("createdAt", "desc")
-    )
-  : query(
-      collection(db, "eligibilityReviews"),
-      where("committeeId", "==", effectiveId),
-      orderBy("createdAt", "desc")
-    );
-    
-    return onSnapshot(q, (snap) => {
+    const q = isAdmin || isDefaultCommittee
+      ? query(
+          collection(db, "eligibilityReviews"),
+          orderBy("createdAt", "desc")
+        )
+      : query(
+          collection(db, "eligibilityReviews"),
+          where("committeeId", "==", effectiveId),
+          orderBy("createdAt", "desc")
+        );
+
+    return onSnapshot(q, async (snap) => {
       const docs = snap.docs.map((d) => ({
         id: d.id,
         ...(d.data() as Omit<ReviewDoc, "id">),
       }));
-      setReviews(docs);
+
+      if (!isDefaultCommittee && !isAdmin) {
+        // For city committees, filter old reviews by item city
+        const filtered = await Promise.all(
+          docs.map(async (review) => {
+            if (review.committeeId !== DEFAULT_COMMITTEE_ID && review.committeeId !== "default") {
+              return review; // keep city-specific reviews
+            }
+            // For old default reviews, check item city
+            if (!review.itemId) return null;
+            const itemSnap = await getDoc(doc(db, "items", review.itemId));
+            if (!itemSnap.exists()) return null;
+            const itemCity = (
+  itemSnap.data() as { city?: string }
+).city?.toLowerCase().trim() ?? "";
+
+const myCity = effectiveId.toLowerCase().trim();
+
+const mappedCity = CITY_TO_COMMITTEE[itemCity] ?? itemCity;
+
+return mappedCity === myCity
+  ? review
+  : null;
+          })
+        );
+        setReviews(filtered.filter(Boolean) as ReviewDoc[]);
+      } else {
+        setReviews(docs);
+      }
     });
   }, [canAccess, profileLoading, isAdmin, committeeId]);
 
@@ -194,14 +233,17 @@ const q = isAdmin || isDefaultCommittee
   if (!canAccess) return;
   const user = getAuthUser();
   if (!user) return;
-  const q = isAdmin
-    ? query(collection(db, "items"), where("donationMode", "==", "committee"))
-    : query(
-        collection(db, "items"),
-        where("donationMode", "==", "committee"),
-        where("committeeUid", "==", user.uid),
-        orderBy("createdAt", "desc"),
-      );
+  const effectiveId = committeeId || DEFAULT_COMMITTEE_ID;
+const isDefaultCommittee = effectiveId === DEFAULT_COMMITTEE_ID;
+
+const q = isAdmin || isDefaultCommittee
+  ? query(collection(db, "items"), where("donationMode", "==", "committee"))
+  : query(
+      collection(db, "items"),
+      where("donationMode", "==", "committee"),
+      where("committeeUid", "==", user.uid),
+      orderBy("createdAt", "desc"),
+    );
   return onSnapshot(q, async (snap) => {
     const items = await Promise.all(
       snap.docs.map(async (d) => {

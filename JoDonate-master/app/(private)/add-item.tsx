@@ -871,10 +871,15 @@ await setDoc(
       </View>
 
       <KeyboardAvoidingView
-        style={{ flex: 1 }}
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
-      >
-        <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
+  style={{ flex: 1 }}
+  behavior={Platform.OS === "ios" ? "padding" : "height"}
+  keyboardVerticalOffset={Platform.OS === "ios" ? 90 : 0}
+>
+  <ScrollView 
+    contentContainerStyle={styles.scroll} 
+    keyboardShouldPersistTaps="handled"
+    keyboardDismissMode="interactive"
+  >
           {step === 1 ? (
             <>
               <Text style={styles.sectionTitle}>Select Category</Text>
