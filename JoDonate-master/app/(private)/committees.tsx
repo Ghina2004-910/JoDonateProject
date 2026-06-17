@@ -78,7 +78,7 @@ export default function CommitteesScreen() {
       ) : (
         <View style={{ flex: 1, flexDirection: "row" }}>
           {/* Tabs */}
-          <View style={styles.tabList}>
+          <ScrollView style={styles.tabList} showsVerticalScrollIndicator={false}>
             {committees.map((c) => (
               <Pressable
                 key={c.id}
@@ -100,7 +100,7 @@ export default function CommitteesScreen() {
                 </Text>
               </Pressable>
             ))}
-          </View>
+          </ScrollView>
 
           {/* Details */}
           <ScrollView style={styles.detail} contentContainerStyle={{ padding: 16, gap: 12 }}>
@@ -210,7 +210,7 @@ const styles = StyleSheet.create({
   },
   headerTitle: { fontSize: 16, fontWeight: "700", color: C.text },
   tabList: {
-    width: 110,
+    width: 1,
     borderRightWidth: 1,
     borderRightColor: C.border,
     backgroundColor: C.card,

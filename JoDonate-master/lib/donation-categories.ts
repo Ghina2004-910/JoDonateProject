@@ -45,7 +45,6 @@ export const JORDAN_CITIES = [
   "Tafilah",
   "Aqaba",
   "Ma'an",
-  "Dead Sea area",
 ] as const;
 
 export type CategoryFormKind =

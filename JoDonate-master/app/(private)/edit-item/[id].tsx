@@ -34,8 +34,7 @@ type CategoryKey =
   | "Education & Training"
   | "Pets & Accessories"
   | "Beauty & Health"
-  | "Books"
-  | "Furniture";
+  | "Books";
 
 type ItemDoc = {
   title: string;
@@ -63,7 +62,6 @@ export default function EditItemScreen() {
       "Pets & Accessories",
       "Beauty & Health",
       "Books",
-      "Furniture",
     ],
     [],
   );
