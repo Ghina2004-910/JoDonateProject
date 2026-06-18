@@ -1,6 +1,18 @@
-import { normalizeCategoryLabel } from "./category-keywords";
+import type { DonationCategory } from "@/lib/donation-categories";
+import { normalizeCategoryLabel } from "@/lib/category-keywords";
 
-export async function categorizeItemFromImage(imageUrl: string, textHint?: string) {
+export function normalizeAiCategory(raw: string): DonationCategory | null {
+  return normalizeCategoryLabel(raw);
+}
+
+export async function categorizeItemFromImage(
+  imageUrl: string,
+  textHint?: string,
+): Promise<{
+  category: DonationCategory | null;
+  aiUsed: boolean;
+  note?: string;
+}> {
   const response = await fetch("https://jo-donate-project-4eju.vercel.app/api/analyze-image", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
