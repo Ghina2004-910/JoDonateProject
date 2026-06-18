@@ -35,6 +35,7 @@ type Committee = {
   committeeCity?: string;
   workingHours?: string;
   distributionPhotos?: string[];
+  verified?: boolean;
 };
 
 export default function CommitteesScreen() {
@@ -97,6 +98,12 @@ export default function CommitteesScreen() {
                   numberOfLines={2}
                 >
                   {c.committeeName ?? c.name ?? "Committee"}
+                  {c.verified && (
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 2 }}>
+                    <Ionicons name="checkmark-circle" size={12} color="#1976D2" />
+                    <Text style={{ fontSize: 10, color: "#1976D2", fontWeight: "700" }}>Verified</Text>
+                  </View>
+                )}
                 </Text>
               </Pressable>
             ))}
@@ -122,6 +129,11 @@ export default function CommitteesScreen() {
                   )}
                   <Text style={styles.detailName}>
                     {selected.committeeName ?? selected.name ?? "Committee"}
+                    {selected.verified && (
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 4, marginTop: -4 }}>
+                      <Ionicons name="checkmark-circle" size={16} color="#1976D2" />
+                    </View>
+                  )}
                   </Text>
                   {selected.committeeCity ? (
                     <View style={styles.cityRow}>

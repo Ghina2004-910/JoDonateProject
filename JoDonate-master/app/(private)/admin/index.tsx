@@ -55,6 +55,8 @@ const C = {
   committeePhone?: string;
   committeeEmail?: string;
   committeeCity?: string;
+  verified?: boolean;
+  verifiedAt?: any;
 };
 
 type ItemRow = {
@@ -293,6 +295,8 @@ const saveCommitteeRole = async () => {
       committeePhone: committeePhone.trim() || null,
       committeeEmail: committeeEmail.trim() || null,
       committeeCity: committeeCity.trim() || null,
+      verified: true,
+      verifiedAt: serverTimestamp(),
     };
     await setDoc(
       doc(db, "committeeMembers", `${selectedCommitteeUid}_${resolvedCommitteeId}`),
@@ -762,6 +766,12 @@ const resolveReport = async (reportId: string, action: "resolved" | "dismissed")
         </View>
         <Text style={{ fontSize: 18, fontWeight: "800", color: C.text, flex: 1 }}>
           {viewCommittee?.committeeName ?? "Committee"}
+          {viewCommittee?.verified && (
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 4, marginTop: 2 }}>
+              <Ionicons name="checkmark-circle" size={14} color="#1976D2" />
+              <Text style={{ fontSize: 12, color: "#1976D2", fontWeight: "700" }}>Verified</Text>
+            </View>
+          )}
         </Text>
       </View>
 
@@ -781,12 +791,29 @@ const resolveReport = async (reportId: string, action: "resolved" | "dismissed")
         </View>
       ) : null)}
 
-      <Pressable
-        style={{ backgroundColor: C.primary, borderRadius: 10, paddingVertical: 12, alignItems: "center", marginTop: 8 }}
-        onPress={() => setViewCommittee(null)}
-      >
-        <Text style={{ color: "#fff", fontWeight: "800" }}>Close</Text>
-      </Pressable>
+      <View style={{ flexDirection: "row", gap: 8, marginTop: 8 }}>
+        <Pressable
+          style={{ flex: 1, backgroundColor: viewCommittee?.verified ? "#E53935" : "#2E7D32", borderRadius: 10, paddingVertical: 12, alignItems: "center" }}
+          onPress={async () => {
+            if (!viewCommittee) return;
+            await updateDoc(doc(db, "users", viewCommittee.id), {
+              verified: !viewCommittee.verified,
+              verifiedAt: serverTimestamp(),
+            });
+            setViewCommittee({ ...viewCommittee, verified: !viewCommittee.verified });
+          }}
+        >
+          <Text style={{ color: "#fff", fontWeight: "800" }}>
+            {viewCommittee?.verified ? "Remove Verification" : "✓ Verify Committee"}
+          </Text>
+        </Pressable>
+        <Pressable
+          style={{ flex: 1, backgroundColor: C.primary, borderRadius: 10, paddingVertical: 12, alignItems: "center" }}
+          onPress={() => setViewCommittee(null)}
+        >
+          <Text style={{ color: "#fff", fontWeight: "800" }}>Close</Text>
+        </Pressable>
+      </View>
     </Pressable>
   </Pressable>
 </Modal>

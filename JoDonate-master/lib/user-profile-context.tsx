@@ -21,6 +21,7 @@ export type UserProfile = {
   browseOnly: boolean;
   demoAccount?: string;
   demoPersona?: "donor" | "receiver";
+  verified?: boolean;
 };
 
 type UserProfileContextValue = {
@@ -79,6 +80,7 @@ export function UserProfileProvider({ children }: { children: React.ReactNode })
             browseOnly: data.browseOnly === true,
             demoAccount: data.demoAccount,
             demoPersona: data.demoPersona,
+            verified: data.verified === true,
           });
         } else {
           setProfile({

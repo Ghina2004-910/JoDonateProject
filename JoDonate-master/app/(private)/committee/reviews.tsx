@@ -103,7 +103,7 @@ function CommitteeName({ uid }: { uid: string }) {
 export default function CommitteeReviewsScreen() {
   const router = useRouter();
   const { signOutApp } = useAuth();
-  const { isCommittee, isAdmin, committeeId, loading: profileLoading } = useUserProfile();
+ const { isCommittee, isAdmin, committeeId, loading: profileLoading, profile } = useUserProfile();
   const [reviews, setReviews] = useState<ReviewDoc[]>([]);
   const [notes, setNotes] = useState<Record<string, string>>({});
   const [usersMap, setUsersMap] = useState<Record<string, UserInfo>>({});
@@ -505,9 +505,14 @@ const q = isAdmin || isDefaultCommittee
 </Pressable>
         <View style={styles.headerCenter}>
           <Text style={styles.headerTitle}>Committee Reviews</Text>
-          <Text style={styles.headerSub}>
-            {isAdmin ? "All committees" : `Committee: ${committeeId || DEFAULT_COMMITTEE_ID}`}
-          </Text>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
+  <Text style={styles.headerSub}>
+    {isAdmin ? "All committees" : `Committee: ${committeeId || DEFAULT_COMMITTEE_ID}`}
+  </Text>
+  {!isAdmin && profile?.verified && (
+    <Ionicons name="checkmark-circle" size={13} color="#90CAF9" />
+  )}
+</View>
         </View>
         <Pressable onPress={handleLogout} hitSlop={12}>
           <Ionicons name="log-out-outline" size={22} color="#fff" />

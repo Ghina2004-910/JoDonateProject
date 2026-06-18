@@ -36,6 +36,7 @@ type CommitteeProfile = {
   committeeCity?: string;
   committeeId?: string;
   role?: string;
+  verified?: boolean;
   workingHours?: string;
   distributionPhotos?: string[];
 };
@@ -106,6 +107,17 @@ export default function CommitteeProfileScreen() {
           </View>
           <Text style={styles.committeeName}>
             {profile.committeeName ?? profile.name ?? "Committee"}
+            {profile.verified && (
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginTop: 4 }}>
+              <Ionicons name="checkmark-circle" size={18} color="#1976D2" />
+              <Text style={{ fontSize: 14, color: "#1976D2", fontWeight: "700" }}>Verified Committee</Text>
+            </View>
+          )}
+            {profile.verified && (
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginTop: 4 }}>
+              <Ionicons name="checkmark-circle" size={18} color="#1976D2" />
+            </View>
+          )}
           </Text>
           {profile.committeeCity ? (
             <View style={styles.cityRow}>

@@ -208,7 +208,7 @@ export default function AddItemScreen() {
   const [optUrgent, setOptUrgent] = useState(false);
   const [donationMode, setDonationMode] = useState<"public" | "committee">("public");
   const [selectedCommitteeUid, setSelectedCommitteeUid] = useState("");
-  const [committees, setCommittees] = useState<{ id: string; committeeName?: string; committeeCity?: string }[]>([]);
+  const [committees, setCommittees] = useState<{ id: string; committeeName?: string; committeeCity?: string; verified?: boolean }[]>([]);
   const [committeeModalOpen, setCommitteeModalOpen] = useState(false);
 
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -307,8 +307,9 @@ export default function AddItemScreen() {
   const unsub = onSnapshot(q, (snap) => {
     setCommittees(
       snap.docs
-        .map((d) => ({ id: d.id, ...(d.data() as { committeeName?: string; committeeCity?: string }) }))
-        .filter((c) => !!c.committeeName),
+        .map((d) => ({ id: d.id, ...(d.data() as { committeeName?: string; committeeCity?: string; verified?: boolean }) }))
+        .filter((c) => !!c.committeeName && c.committeeName !== "Aid Committee")
+        .sort((a, b) => (a.committeeName ?? "").localeCompare(b.committeeName ?? "")),
     );
   });
   return unsub;
@@ -1157,28 +1158,35 @@ await setDoc(
     {committees.length === 0 ? (
       <Text style={[styles.muted, { marginBottom: 8 }]}>No committees available.</Text>
     ) : (
-      committees.map((c) => (
-        <Pressable
-          key={c.id}
-          style={[
-            styles.inputRow,
-            { marginBottom: 8 },
-            selectedCommitteeUid === c.id && { borderColor: C.primary, borderWidth: 2 },
-          ]}
-          onPress={() => setSelectedCommitteeUid(c.id)}
-        >
-          <Ionicons
-            name={selectedCommitteeUid === c.id ? "radio-button-on" : "radio-button-off"}
-            size={20}
-            color={selectedCommitteeUid === c.id ? C.primary : C.muted}
-          />
-          <View style={{ flex: 1 }}>
-            <Text style={styles.inputLike}>{c.committeeName}</Text>
-            {c.committeeCity ? (
-              <Text style={{ fontSize: 12, color: C.muted }}>{c.committeeCity}</Text>
-            ) : null}
-          </View>
-        </Pressable>
+      Array.from({ length: Math.ceil(committees.length / 2) }, (_, rowIdx) => (
+        <View key={rowIdx} style={{ flexDirection: "row", gap: 8, marginBottom: 8 }}>
+          {committees.slice(rowIdx * 2, rowIdx * 2 + 2).map((c) => (
+            <Pressable
+              key={c.id}
+              style={[
+                styles.inputRow,
+                { flex: 1, marginBottom: 0, minWidth: 0 },
+                selectedCommitteeUid === c.id && { borderColor: C.primary, borderWidth: 2 },
+              ]}
+              onPress={() => setSelectedCommitteeUid(c.id)}
+            >
+              <Ionicons
+                name={selectedCommitteeUid === c.id ? "radio-button-on" : "radio-button-off"}
+                size={20}
+                color={selectedCommitteeUid === c.id ? C.primary : C.muted}
+              />
+              <View style={{ flex: 1, minWidth: 0 }}>
+                <Text style={[styles.inputLike, { flexShrink: 1 }]} numberOfLines={2}>{c.committeeName}</Text>
+                {c.verified && (
+                    <Ionicons name="checkmark-circle" size={15} color="#1976D2" />
+                  )}
+                {c.committeeCity ? (
+                  <Text style={{ fontSize: 10, color: C.muted }} numberOfLines={1}>{c.committeeCity}</Text>
+                ) : null}
+              </View>
+            </Pressable>
+          ))}
+        </View>
       ))
     )}
   </View>

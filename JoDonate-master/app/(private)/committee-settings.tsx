@@ -46,6 +46,7 @@ export default function CommitteeSettingsScreen() {
   const [committeeCity, setCommitteeCity] = useState("");
   const [workingHours, setWorkingHours] = useState("");
 const [distributionPhotos, setDistributionPhotos] = useState<string[]>([]);
+const [verified, setVerified] = useState(false);
 
   useEffect(() => {
     const user = getAuthUser();
@@ -63,6 +64,8 @@ const [distributionPhotos, setDistributionPhotos] = useState<string[]>([]);
   // ensure distributionPhotos is an array of strings
   const dist = d.distributionPhotos;
   setDistributionPhotos(Array.isArray(dist) ? dist : dist ? [dist] : []);
+  setVerified(d.verified === true);
+      setVerified(!!d.verified);
       setLoading(false);
     });
   }, []);
@@ -133,6 +136,7 @@ const [distributionPhotos, setDistributionPhotos] = useState<string[]>([]);
         committeeCity: committeeCity.trim() || null,
         workingHours: workingHours.trim() || null,
         distributionPhotos: distributionPhotos || null,
+        verified: verified || null,
       });
       Alert.alert("Saved", "Committee info updated successfully.");
       router.back();
@@ -185,6 +189,12 @@ const [distributionPhotos, setDistributionPhotos] = useState<string[]>([]);
             </View>
           </Pressable>
           <Text style={styles.avatarHint}>Tap to change committee photo</Text>
+          {verified && (
+  <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginTop: 8 }}>
+    <Ionicons name="checkmark-circle" size={18} color="#1976D2" />
+    <Text style={{ fontSize: 14, color: "#1976D2", fontWeight: "700" }}>Verified Committee</Text>
+  </View>
+)}
 
           {/* Fields */}
           <Text style={styles.label}>Committee Name *</Text>
