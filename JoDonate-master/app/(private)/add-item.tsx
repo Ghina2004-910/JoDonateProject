@@ -1,8 +1,10 @@
 import { Ionicons } from "@expo/vector-icons";
+
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useRouter } from "expo-router";
 import { addDoc, collection, doc, getDoc, onSnapshot, query, serverTimestamp, setDoc, where } from "firebase/firestore";
 import { uploadToCloudinary } from "@/lib/cloudinaryService";
+import CalendarPicker from "react-native-calendar-picker";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Alert,
@@ -217,6 +219,10 @@ export default function AddItemScreen() {
   const [pickerApply, setPickerApply] = useState<(v: string) => void>(() => {});
 
   const [submitting, setSubmitting] = useState(false);
+  const [showFoodExpiryPicker, setShowFoodExpiryPicker] = useState(false);
+  const [showBeautyExpiryPicker, setShowBeautyExpiryPicker] = useState(false);
+  const [foodExpiryDate, setFoodExpiryDate] = useState<Date | null>(null);
+  const [beautyExpiryDate, setBeautyExpiryDate] = useState<Date | null>(null);
   const [step1Err, setStep1Err] = useState<string | null>(null);
   const [step2Err, setStep2Err] = useState<string | null>(null);
   const [step3Err, setStep3Err] = useState<string | null>(null);
@@ -346,26 +352,106 @@ useEffect(() => {
     try {
       setCategorizing(true);
       setAiCategoryNote(null);
-      const textHint = `${title} ${description}`.trim();
-      const result = await categorizeItemFromImage(imageUrl, textHint);
-      let suggested = result.category;
-      if (!suggested && textHint.length >= 4) {
-        suggested = suggestCategoryFromText(title, description);
-      }
-      if (suggested) {
-        setCategory(suggested);
-        setAiCategoryNote(
-          result.aiUsed
-            ? `AI suggested "${suggested}" from your photo. You can change it on the previous step.`
-            : `Suggested "${suggested}" from your photo or description. You can change it on the previous step.`,
-        );
-      }
+
+      // Call Anthropic API directly for full field extraction
+      const response = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: "claude-sonnet-4-6",
+          max_tokens: 1000,
+          messages: [{
+            role: "user",
+            content: [
+              {
+                type: "image",
+                source: { type: "url", url: imageUrl },
+              },
+              {
+                type: "text",
+                text: `Analyze this donation image and return ONLY a JSON object (no markdown, no backticks) with these fields:
+{
+  "category": one of: "Food","Clothes","Books","Electronics","Beauty & Health","Services","Education","Sports","Pets","Other",
+  "title": "short descriptive title",
+  "description": "2-3 sentence description",
+  "kind": one of: food|clothes|books|beauty|electronics|services|education|sports|pets|other,
+  "fields": {
+    "foodType": if food category,
+    "allergens": if food,
+    "clothSize": if clothes (XS/S/M/L/XL/XXL/Other),
+    "clothGender": if clothes (Men/Women/Kids/Unisex),
+    "clothCondition": if clothes,
+    "material": if clothes,
+    "clothColors": if clothes,
+    "brandCloth": if clothes,
+    "bookTitle": if books,
+    "bookAuthor": if books,
+    "bookLang": if books (Arabic/English/Other),
+    "bookGenre": if books,
+    "bookCondition": if books,
+    "brandModel": if electronics,
+    "elecCondition": if electronics,
+    "workingStatus": if electronics,
+    "beautyBrand": if beauty,
+    "beautyType": if beauty,
+    "equipmentType": if sports,
+    "sportsCondition": if sports,
+    "petType": if pets,
+    "petItemType": if pets,
+    "petCondition": if pets,
+    "otherCondition": if other,
+    "serviceType": if services,
+    "courseSubject": if education
+  }
+}`
+              }
+            ]
+          }]
+        })
+      });
+
+      const data = await response.json();
+      const text = data.content?.map((b: {type: string; text?: string}) => b.text || "").join("") || "";
+      const clean = text.replace(/```json|```/g, "").trim();
+      const parsed = JSON.parse(clean);
+
+      if (parsed.category) setCategory(parsed.category);
+      if (parsed.title) setTitle(parsed.title);
+      if (parsed.description) setDescription(parsed.description);
+
+      const f = parsed.fields || {};
+      if (f.foodType) setFoodType(f.foodType);
+      if (f.allergens) setAllergens(f.allergens);
+      if (f.clothSize) setClothSize(f.clothSize);
+      if (f.clothGender) setClothGender(f.clothGender);
+      if (f.clothCondition) setClothCondition(f.clothCondition);
+      if (f.material) setMaterial(f.material);
+      if (f.clothColors) setClothColors(f.clothColors);
+      if (f.brandCloth) setBrandCloth(f.brandCloth);
+      if (f.bookTitle) setBookTitle(f.bookTitle);
+      if (f.bookAuthor) setBookAuthor(f.bookAuthor);
+      if (f.bookLang) setBookLang(f.bookLang);
+      if (f.bookGenre) setBookGenre(f.bookGenre);
+      if (f.bookCondition) setBookCondition(f.bookCondition);
+      if (f.brandModel) setBrandModel(f.brandModel);
+      if (f.elecCondition) setElecCondition(f.elecCondition);
+      if (f.workingStatus) setWorkingStatus(f.workingStatus);
+      if (f.beautyBrand) setBeautyBrand(f.beautyBrand);
+      if (f.beautyType) setBeautyType(f.beautyType);
+      if (f.equipmentType) setEquipmentType(f.equipmentType);
+      if (f.sportsCondition) setSportsCondition(f.sportsCondition);
+      if (f.petType) setPetType(f.petType);
+      if (f.petItemType) setPetItemType(f.petItemType);
+      if (f.petCondition) setPetCondition(f.petCondition);
+      if (f.otherCondition) setOtherCondition(f.otherCondition);
+      if (f.serviceType) setServiceType(f.serviceType);
+      if (f.courseSubject) setCourseSubject(f.courseSubject);
+
+      setAiCategoryNote("✨ AI analyzed your image and filled the fields. Review and edit as needed.");
     } catch {
       const fallback = suggestCategoryFromText(title, description);
-      if (fallback) {
-        setCategory(fallback);
-        setAiCategoryNote(`Suggested "${fallback}" from your description. You can change it on the previous step.`);
-      }
+      if (fallback) setCategory(fallback);
+      setAiCategoryNote("Could not analyze image. Please fill fields manually.");
     } finally {
       setCategorizing(false);
     }
@@ -423,131 +509,13 @@ useEffect(() => {
   const kind = useMemo(() => (category ? categoryFormKind(category) : "other"), [category]);
 
   const validateStep1 = (): boolean => {
-    const fe: Record<string, boolean> = {};
-    let msg: string | null = null;
     if (!category) {
-      msg = "Select a category.";
-    } else if (!title.trim()) {
-      fe.title = true;
-      msg = "Title is required.";
-    } else if (!description.trim()) {
-      fe.description = true;
-      msg = "Description is required.";
-    } else if (!city.trim()) {
-      fe.city = true;
-      msg = "Location is required.";
+      setStep1Err("Select a category.");
+      return false;
     }
-
-    if (category && kind === "food") {
-      const exp = parseDdMmYyyy(foodExpiry);
-      if (!foodExpiry.trim() || !exp) {
-        fe.foodExpiry = true;
-        msg = "Food expiry (DD/MM/YYYY) is required.";
-      } else if (exp < startOfToday()) {
-        fe.foodExpiry = true;
-        msg = "Expiry must be today or later.";
-      }
-      if (!foodType) {
-        fe.foodType = true;
-        msg = msg ?? "Select food type.";
-      }
-      if (!packaging) {
-        fe.packaging = true;
-        msg = msg ?? "Select packaging.";
-      }
-    }
-
-    if (category && kind === "clothes") {
-      if (!clothSize) {
-        fe.clothSize = true;
-        msg = msg ?? "Select size.";
-      }
-      if (!clothGender) {
-        fe.clothGender = true;
-        msg = msg ?? "Select who it is for.";
-      }
-      if (!clothCondition) {
-        fe.clothCondition = true;
-        msg = msg ?? "Select condition.";
-      }
-    }
-
-    if (category && kind === "books") {
-      if (!bookTitle.trim()) fe.bookTitle = true;
-      if (!bookAuthor.trim()) fe.bookAuthor = true;
-      if (!bookLang) fe.bookLang = true;
-      if (!bookCondition) fe.bookCondition = true;
-      if (!bookTitle.trim() || !bookAuthor.trim() || !bookLang || !bookCondition) {
-        msg = msg ?? "Complete all required book fields.";
-      }
-      if (bookIsbn.trim() && !isbnOk(bookIsbn)) {
-        fe.bookIsbn = true;
-        msg = "ISBN format looks invalid.";
-      }
-    }
-
-    if (category && kind === "beauty") {
-      const exp = parseDdMmYyyy(beautyExpiry);
-      if (!beautyExpiry.trim() || !exp) {
-        fe.beautyExpiry = true;
-        msg = msg ?? "Beauty expiry (DD/MM/YYYY) is required.";
-      } else if (exp <= new Date()) {
-        fe.beautyExpiry = true;
-        msg = "Expiry must be in the future.";
-      }
-      if (!beautyBrand.trim()) {
-        fe.beautyBrand = true;
-        msg = msg ?? "Brand is required.";
-      }
-      if (!beautyType) {
-        fe.beautyType = true;
-        msg = msg ?? "Product type is required.";
-      }
-    }
-
-    if (category && kind === "electronics") {
-      if (!brandModel.trim()) fe.brandModel = true;
-      if (!elecCondition) fe.elecCondition = true;
-      if (!brandModel.trim() || !elecCondition) msg = msg ?? "Brand/model and condition are required.";
-    }
-
-    if (category && kind === "services") {
-      if (!serviceType) {
-        fe.serviceType = true;
-        msg = msg ?? "Select service type.";
-      }
-    }
-
-    if (category && kind === "education") {
-      if (!courseSubject.trim()) {
-        fe.courseSubject = true;
-        msg = msg ?? "Subject or course name is required.";
-      }
-    }
-
-    if (category && kind === "sports") {
-      if (!equipmentType) fe.equipmentType = true;
-      if (!sportsCondition) fe.sportsCondition = true;
-      if (!equipmentType || !sportsCondition) msg = msg ?? "Equipment type and condition are required.";
-    }
-
-    if (category && kind === "pets") {
-      if (!petCondition) {
-        fe.petCondition = true;
-        msg = msg ?? "Select condition for this item.";
-      }
-    }
-
-    if (category && kind === "other") {
-      if (!otherCondition) {
-        fe.otherCondition = true;
-        msg = msg ?? "Select overall condition.";
-      }
-    }
-
-    setFieldErr(fe);
-    setStep1Err(msg);
-    return !msg;
+    setStep1Err(null);
+    setFieldErr({});
+    return true;
   };
 
   const validateStep2 = () => {
@@ -559,21 +527,80 @@ useEffect(() => {
     return true;
   };
 
-  const validateStep3 = () => {
-    if (donationMode === "committee" && !selectedCommitteeUid) {
-      setStep3Err("Please select a committee.");
-      return false;
+  const validateStep3 = (): boolean => {
+    const fe: Record<string, boolean> = {};
+    let msg: string | null = null;
+
+    // Validate title, description, city
+    if (!title.trim()) { fe.title = true; msg = "Title is required."; }
+    else if (!description.trim()) { fe.description = true; msg = "Description is required."; }
+    else if (!city.trim()) { fe.city = true; msg = "Location is required."; }
+
+    // Validate category-specific fields
+    if (!msg && category && kind === "food") {
+      const exp = parseDdMmYyyy(foodExpiry);
+      if (!foodExpiry.trim() || !exp) { fe.foodExpiry = true; msg = "Food expiry (DD/MM/YYYY) is required."; }
+      else if (exp < startOfToday()) { fe.foodExpiry = true; msg = "Expiry must be today or later."; }
+      if (!foodType) { fe.foodType = true; msg = msg ?? "Select food type."; }
+      if (!packaging) { fe.packaging = true; msg = msg ?? "Select packaging."; }
     }
-    if (!phoneJordanOk(contactPhone)) {
-      setStep3Err("Enter a valid Jordan number (+9627… or 07…).");
-      return false;
+    if (!msg && category && kind === "clothes") {
+      if (!clothSize) { fe.clothSize = true; msg = "Select size."; }
+      if (!clothGender) { fe.clothGender = true; msg = msg ?? "Select who it is for."; }
+      if (!clothCondition) { fe.clothCondition = true; msg = msg ?? "Select condition."; }
     }
-    if (contactEmail.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contactEmail.trim())) {
-      setStep3Err("Email format looks invalid.");
-      return false;
+    if (!msg && category && kind === "books") {
+      if (!bookTitle.trim()) fe.bookTitle = true;
+      if (!bookAuthor.trim()) fe.bookAuthor = true;
+      if (!bookLang) fe.bookLang = true;
+      if (!bookCondition) fe.bookCondition = true;
+      if (!bookTitle.trim() || !bookAuthor.trim() || !bookLang || !bookCondition) msg = "Complete all required book fields.";
+      if (bookIsbn.trim() && !isbnOk(bookIsbn)) { fe.bookIsbn = true; msg = "ISBN format looks invalid."; }
     }
-    setStep3Err(null);
-    return true;
+    if (!msg && category && kind === "beauty") {
+      const exp = parseDdMmYyyy(beautyExpiry);
+      if (!beautyExpiry.trim() || !exp) { fe.beautyExpiry = true; msg = "Beauty expiry (DD/MM/YYYY) is required."; }
+      else if (exp <= new Date()) { fe.beautyExpiry = true; msg = "Expiry must be in the future."; }
+      if (!beautyBrand.trim()) { fe.beautyBrand = true; msg = msg ?? "Brand is required."; }
+      if (!beautyType) { fe.beautyType = true; msg = msg ?? "Product type is required."; }
+    }
+    if (!msg && category && kind === "electronics") {
+      if (!brandModel.trim()) fe.brandModel = true;
+      if (!elecCondition) fe.elecCondition = true;
+      if (!brandModel.trim() || !elecCondition) msg = "Brand/model and condition are required.";
+    }
+    if (!msg && category && kind === "services") {
+      if (!serviceType) { fe.serviceType = true; msg = "Select service type."; }
+    }
+    if (!msg && category && kind === "education") {
+      if (!courseSubject.trim()) { fe.courseSubject = true; msg = "Subject or course name is required."; }
+    }
+    if (!msg && category && kind === "sports") {
+      if (!equipmentType) fe.equipmentType = true;
+      if (!sportsCondition) fe.sportsCondition = true;
+      if (!equipmentType || !sportsCondition) msg = "Equipment type and condition are required.";
+    }
+    if (!msg && category && kind === "pets") {
+      if (!petCondition) { fe.petCondition = true; msg = "Select condition for this item."; }
+    }
+    if (!msg && category && kind === "other") {
+      if (!otherCondition) { fe.otherCondition = true; msg = "Select overall condition."; }
+    }
+
+    // Contact validation
+    if (!msg && donationMode === "committee" && !selectedCommitteeUid) {
+      msg = "Please select a committee.";
+    }
+    if (!msg && !phoneJordanOk(contactPhone)) {
+      msg = "Enter a valid Jordan number (+9627… or 07…).";
+    }
+    if (!msg && contactEmail.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contactEmail.trim())) {
+      msg = "Email format looks invalid.";
+    }
+
+    setFieldErr(fe);
+    setStep3Err(msg);
+    return !msg;
   };
   const listingCondition = useMemo(() => {
     if (kind === "clothes") return clothCondition;
@@ -902,6 +929,116 @@ await setDoc(
                 ))}
               </View>
 
+              {step1Err ? <Text style={styles.errBanner}>{step1Err}</Text> : null}
+
+              <Pressable
+                style={styles.primaryBtn}
+                onPress={() => validateStep1() && setStep(2)}
+              >
+                <Text style={styles.primaryBtnTxt}>Next: Images</Text>
+              </Pressable>
+            </>
+          ) : null}
+
+          {step === 2 ? (
+            <>
+              <Text style={styles.sectionTitle}>Upload Images</Text>
+              <Pressable style={styles.dropZone} onPress={pickImages} disabled={uploading}>
+                <Ionicons name="camera-outline" size={32} color={C.primary} />
+                <Text style={styles.dropTitle}>Upload Images</Text>
+                <Text style={styles.dropSub}>Tap to choose photos</Text>
+                <Text style={styles.dropHint}>JPG, PNG up to 5MB · max {MAX_IMAGES}</Text>
+              </Pressable>
+              {uploading ? <Text style={styles.muted}>Uploading…</Text> : null}
+              {categorizing ? <Text style={styles.muted}>Analyzing image with AI…</Text> : null}
+              {aiCategoryNote ? <Text style={styles.aiNote}>{aiCategoryNote}</Text> : null}
+              <View style={styles.thumbRow}>
+                {images.map((im, idx) => (
+                  <View key={im.url} style={styles.thumbWrap}>
+                    <Image source={{ uri: im.uri }} style={styles.thumb} />
+                    <Pressable style={styles.thumbX} onPress={() => removeImage(idx)}>
+                      <Ionicons name="close" size={14} color="#FFF" />
+                    </Pressable>
+                  </View>
+                ))}
+              </View>
+              {step2Err ? <Text style={styles.errBanner}>{step2Err}</Text> : null}
+              <Pressable style={styles.outlineBtn} onPress={() => setStep(1)}>
+                <Text style={styles.outlineBtnTxt}>Back</Text>
+              </Pressable>
+              <Pressable
+                style={styles.primaryBtn}
+                onPress={() => validateStep2() && setStep(3)}
+              >
+                <Text style={styles.primaryBtnTxt}>Next: Review</Text>
+              </Pressable>
+            </>
+          ) : null}
+
+          {step === 3 ? (
+            <>
+              {/* AI Status Banner */}
+              {categorizing ? (
+                <View style={{ backgroundColor: "#FFF3CD", borderRadius: 10, padding: 12, marginBottom: 12 }}>
+                  <Text style={{ color: "#856404", fontWeight: "700", textAlign: "center" }}>
+                    🤖 AI is analyzing your image…
+                  </Text>
+                </View>
+              ) : null}
+              {aiCategoryNote ? (
+                <View style={{ backgroundColor: "#E8F5E9", borderRadius: 10, padding: 12, marginBottom: 12 }}>
+                  <Text style={{ color: "#2E7D32", fontWeight: "600" }}>{aiCategoryNote}</Text>
+                </View>
+              ) : null}
+
+              {/* Basic Info */}
+              <Text style={styles.sectionTitle}>Donation Details</Text>
+
+              <FieldLabel required>Donation Title</FieldLabel>
+              <TextInput
+                style={[styles.input, fieldErr.title && styles.inputErr]}
+                placeholder="e.g. Gentle used winter jacket"
+                placeholderTextColor={C.muted}
+                value={title}
+                maxLength={MAX_TITLE}
+                onChangeText={(t) => {
+                  setTitle(t);
+                  setFieldErr((p) => ({ ...p, title: false }));
+                }}
+              />
+              <Text style={styles.counter}>
+                {title.length}/{MAX_TITLE}
+              </Text>
+
+              <FieldLabel required>Description</FieldLabel>
+              <TextInput
+                style={[styles.textarea, fieldErr.description && styles.inputErr]}
+                placeholder="Describe the donation in detail..."
+                placeholderTextColor={C.muted}
+                value={description}
+                multiline
+                maxLength={MAX_DESC}
+                textAlignVertical="top"
+                onChangeText={(t) => {
+                  setDescription(t);
+                  setFieldErr((p) => ({ ...p, description: false }));
+                }}
+              />
+              <Text style={styles.counter}>{description.length}/{MAX_DESC}</Text>
+
+              <FieldLabel required>Location / City</FieldLabel>
+              <Pressable
+                style={[styles.inputRow, fieldErr.city && styles.inputErr]}
+                onPress={() => setCityModal(true)}
+              >
+                <Ionicons name="location-outline" size={20} color={C.primary} />
+                <Text style={[styles.inputLike, !city && { color: C.muted }]}>
+                  {city || "Select or enter city"}
+                </Text>
+                <Ionicons name="chevron-down" size={18} color={C.muted} />
+              </Pressable>
+
+              {/* Dynamic category fields — now shown here with date pickers */}
               {category ? renderDynamicFields({
                 kind,
                 openPicker,
@@ -998,100 +1135,18 @@ await setDoc(
                 setAvailabilityNote,
                 otherCondition,
                 setOtherCondition,
+                // Date picker props
+                showFoodExpiryPicker,
+                setShowFoodExpiryPicker,
+                showBeautyExpiryPicker,
+                setShowBeautyExpiryPicker,
+                foodExpiryDate,
+                setFoodExpiryDate,
+                beautyExpiryDate,
+                setBeautyExpiryDate,
               }) : null}
 
-              <FieldLabel required>Donation Title</FieldLabel>
-              <TextInput
-                style={[styles.input, fieldErr.title && styles.inputErr]}
-                placeholder="e.g. Gentle used winter jacket"
-                placeholderTextColor={C.muted}
-                value={title}
-                maxLength={MAX_TITLE}
-                onChangeText={(t) => {
-                  setTitle(t);
-                  setFieldErr((p) => ({ ...p, title: false }));
-                }}
-              />
-              <Text style={styles.counter}>
-                {title.length}/{MAX_TITLE}
-              </Text>
-
-              <FieldLabel required>Description</FieldLabel>
-              <TextInput
-                style={[styles.textarea, fieldErr.description && styles.inputErr]}
-                placeholder="Describe the donation in detail..."
-                placeholderTextColor={C.muted}
-                value={description}
-                multiline
-                maxLength={MAX_DESC}
-                textAlignVertical="top"
-                onChangeText={(t) => {
-                  setDescription(t);
-                  setFieldErr((p) => ({ ...p, description: false }));
-                }}
-              />
-              <Text style={styles.counter}>{description.length}/{MAX_DESC}</Text>
-
-              <FieldLabel required>Location / City</FieldLabel>
-              <Pressable
-                style={[styles.inputRow, fieldErr.city && styles.inputErr]}
-                onPress={() => setCityModal(true)}
-              >
-                <Ionicons name="location-outline" size={20} color={C.primary} />
-                <Text style={[styles.inputLike, !city && { color: C.muted }]}>
-                  {city || "Select or enter city"}
-                </Text>
-                <Ionicons name="chevron-down" size={18} color={C.muted} />
-              </Pressable>
-
-              {step1Err ? <Text style={styles.errBanner}>{step1Err}</Text> : null}
-
-              <Pressable
-                style={styles.primaryBtn}
-                onPress={() => validateStep1() && setStep(2)}
-              >
-                <Text style={styles.primaryBtnTxt}>Next: Images</Text>
-              </Pressable>
-            </>
-          ) : null}
-
-          {step === 2 ? (
-            <>
-              <Text style={styles.sectionTitle}>Upload Images</Text>
-              <Pressable style={styles.dropZone} onPress={pickImages} disabled={uploading}>
-                <Ionicons name="camera-outline" size={32} color={C.primary} />
-                <Text style={styles.dropTitle}>Upload Images</Text>
-                <Text style={styles.dropSub}>Tap to choose photos</Text>
-                <Text style={styles.dropHint}>JPG, PNG up to 5MB · max {MAX_IMAGES}</Text>
-              </Pressable>
-              {uploading ? <Text style={styles.muted}>Uploading…</Text> : null}
-              {categorizing ? <Text style={styles.muted}>Analyzing image with AI…</Text> : null}
-              {aiCategoryNote ? <Text style={styles.aiNote}>{aiCategoryNote}</Text> : null}
-              <View style={styles.thumbRow}>
-                {images.map((im, idx) => (
-                  <View key={im.url} style={styles.thumbWrap}>
-                    <Image source={{ uri: im.uri }} style={styles.thumb} />
-                    <Pressable style={styles.thumbX} onPress={() => removeImage(idx)}>
-                      <Ionicons name="close" size={14} color="#FFF" />
-                    </Pressable>
-                  </View>
-                ))}
-              </View>
-              {step2Err ? <Text style={styles.errBanner}>{step2Err}</Text> : null}
-              <Pressable style={styles.outlineBtn} onPress={() => setStep(1)}>
-                <Text style={styles.outlineBtnTxt}>Back</Text>
-              </Pressable>
-              <Pressable
-                style={styles.primaryBtn}
-                onPress={() => validateStep2() && setStep(3)}
-              >
-                <Text style={styles.primaryBtnTxt}>Next: Review</Text>
-              </Pressable>
-            </>
-          ) : null}
-
-          {step === 3 ? (
-            <>
+              {/* Contact Info */}
               <Text style={styles.sectionTitle}>How to reach you</Text>
               <FieldLabel required>Phone Number</FieldLabel>
               <TextInput
@@ -1363,14 +1418,39 @@ function renderDynamicFields(p: DynProps) {
   if (kind === "food") {
     return (
       <>
-        <FieldLabel required>Expiry Date (DD/MM/YYYY)</FieldLabel>
-        <TextInput
-          style={[styles.input, fieldErr.foodExpiry && styles.inputErr]}
-          placeholder="DD/MM/YYYY"
-          placeholderTextColor={C.muted}
-          value={p.foodExpiry as string}
-          onChangeText={p.setFoodExpiry as (t: string) => void}
-        />
+        <FieldLabel required>Expiry Date</FieldLabel>
+        <Pressable
+          style={[styles.inputRow, fieldErr.foodExpiry && styles.inputErr]}
+          onPress={() => (p.setShowFoodExpiryPicker as (v: boolean) => void)(true)}
+        >
+          <Ionicons name="calendar-outline" size={20} color={C.primary} />
+          <Text style={[styles.inputLike, !(p.foodExpiry as string) && { color: C.muted }]}>
+            {(p.foodExpiry as string) || "Select expiry date"}
+          </Text>
+        </Pressable>
+        {(p.showFoodExpiryPicker as boolean) && (
+          <Modal transparent animationType="fade" visible={true}>
+            <Pressable
+              style={styles.modalBg}
+              onPress={() => (p.setShowFoodExpiryPicker as (v: boolean) => void)(false)}
+            >
+              <Pressable style={[styles.modalCard, { padding: 20 }]} onPress={() => {}}>
+                <Text style={styles.modalTitle}>Select Expiry Date</Text>
+                <CalendarPicker
+                  onDateChange={(date: Date) => {
+                    const d = date;
+                    const formatted = `${String(d.getDate()).padStart(2,"0")}/${String(d.getMonth()+1).padStart(2,"0")}/${d.getFullYear()}`;
+                    (p.setFoodExpiry as (v: string) => void)(formatted);
+                    (p.setFoodExpiryDate as (v: Date) => void)(d);
+                    (p.setShowFoodExpiryPicker as (v: boolean) => void)(false);
+                  }}
+                  selectedStartDate={(p.foodExpiryDate as Date) || undefined}
+                  minDate={new Date()}
+                />
+              </Pressable>
+            </Pressable>
+          </Modal>
+        )}
         <FieldLabel>When was it prepared? (optional)</FieldLabel>
         <TextInput
           style={styles.input}
@@ -1490,14 +1570,39 @@ function renderDynamicFields(p: DynProps) {
   if (kind === "beauty") {
     return (
       <>
-        <FieldLabel required>Expiry Date (DD/MM/YYYY)</FieldLabel>
-        <TextInput
-          style={[styles.input, fieldErr.beautyExpiry && styles.inputErr]}
-          placeholder="DD/MM/YYYY"
-          placeholderTextColor={C.muted}
-          value={p.beautyExpiry as string}
-          onChangeText={p.setBeautyExpiry as (t: string) => void}
-        />
+        <FieldLabel required>Expiry Date</FieldLabel>
+        <Pressable
+          style={[styles.inputRow, fieldErr.beautyExpiry && styles.inputErr]}
+          onPress={() => (p.setShowBeautyExpiryPicker as (v: boolean) => void)(true)}
+        >
+          <Ionicons name="calendar-outline" size={20} color={C.primary} />
+          <Text style={[styles.inputLike, !(p.beautyExpiry as string) && { color: C.muted }]}>
+            {(p.beautyExpiry as string) || "Select expiry date"}
+          </Text>
+        </Pressable>
+        {(p.showBeautyExpiryPicker as boolean) && (
+          <Modal transparent animationType="fade" visible={true}>
+            <Pressable
+              style={styles.modalBg}
+              onPress={() => (p.setShowBeautyExpiryPicker as (v: boolean) => void)(false)}
+            >
+              <Pressable style={[styles.modalCard, { padding: 20 }]} onPress={() => {}}>
+                <Text style={styles.modalTitle}>Select Expiry Date</Text>
+                <CalendarPicker
+                  onDateChange={(date: Date) => {
+                    const d = date;
+                    const formatted = `${String(d.getDate()).padStart(2,"0")}/${String(d.getMonth()+1).padStart(2,"0")}/${d.getFullYear()}`;
+                    (p.setBeautyExpiry as (v: string) => void)(formatted);
+                    (p.setBeautyExpiryDate as (v: Date) => void)(d);
+                    (p.setShowBeautyExpiryPicker as (v: boolean) => void)(false);
+                  }}
+                  selectedStartDate={(p.beautyExpiryDate as Date) || undefined}
+                  minDate={new Date()}
+                />
+              </Pressable>
+            </Pressable>
+          </Modal>
+        )}
         <FieldLabel required>Brand</FieldLabel>
         <TextInput
           style={[styles.input, fieldErr.beautyBrand && styles.inputErr]}
