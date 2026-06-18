@@ -1,40 +1,24 @@
-import { httpsCallable } from "firebase/functions";
-import type { DonationCategory } from "@/lib/donation-categories";
-import { normalizeCategoryLabel } from "@/lib/category-keywords";
-import { functions } from "@/lib/firebase";
+import { normalizeCategoryLabel } from "./category-keywords";
 
-type CategorizeResponse = {
-  category: string;
-  aiUsed: boolean;
-  note?: string;
-};
+export async function categorizeItemFromImage(imageUrl: string, textHint?: string) {
+  const response = await fetch("https://jo-donate-project-4eju.vercel.app/api/analyze-image", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ imageUrl }),
+  });
 
-export function normalizeAiCategory(raw: string): DonationCategory | null {
-  return normalizeCategoryLabel(raw);
-}
+  const data = await response.json();
+  const raw = data.content?.[0]?.text ?? "";
 
-export async function categorizeItemFromImage(
-  imageUrl: string,
-  textHint?: string,
-): Promise<{
-  category: DonationCategory | null;
-  aiUsed: boolean;
-  note?: string;
-}> {
-  const callable = httpsCallable<{ imageUrl: string }, CategorizeResponse>(
-    functions,
-    "categorizeItemFromImage",
-  );
-  const { data } = await callable({ imageUrl });
+  let parsed: any = {};
+  try {
+    parsed = JSON.parse(raw.replace(/```json|```/g, "").trim());
+  } catch {}
 
-  let category = normalizeCategoryLabel(data.category);
+  let category = normalizeCategoryLabel(parsed.category ?? "");
   if (!category && textHint?.trim()) {
     category = normalizeCategoryLabel(textHint) ?? null;
   }
 
-  return {
-    category,
-    aiUsed: data.aiUsed,
-    note: data.note,
-  };
+  return { category, aiUsed: true };
 }
