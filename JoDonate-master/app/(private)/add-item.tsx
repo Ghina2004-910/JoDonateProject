@@ -1176,10 +1176,12 @@ await setDoc(
                 color={selectedCommitteeUid === c.id ? C.primary : C.muted}
               />
               <View style={{ flex: 1, minWidth: 0 }}>
-                <Text style={[styles.inputLike, { flexShrink: 1 }]} numberOfLines={2}>{c.committeeName}</Text>
-                {c.verified && (
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+                  <Text style={[styles.inputLike, { flexShrink: 1 }]} numberOfLines={2}>{c.committeeName}</Text>
+                  {c.verified && (
                     <Ionicons name="checkmark-circle" size={15} color="#1976D2" />
                   )}
+                </View>
                 {c.committeeCity ? (
                   <Text style={{ fontSize: 10, color: C.muted }} numberOfLines={1}>{c.committeeCity}</Text>
                 ) : null}
